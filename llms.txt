@@ -1,0 +1,171 @@
+Project: bottom-sheet
+
+Summary:
+bottom-sheet is a React Native library for performant bottom sheets with Reanimated and Gesture Handler.
+
+Primary behaviors:
+- snap points accept pixels, percentages, "content" sizing, and measured anchors
+- spring animation with velocity projection for natural snapping
+- rubber-band overscroll at top and bottom edges
+- dismissal by swipe-down or backdrop tap, configurable per sheet
+- when dismissible=false, sheet rubber-bands at its floor instead of dismissing
+- detached mode floats the sheet above the bottom edge with configurable padding
+- detached sheets can morph into fullscreen with live corner-radius interpolation
+- collapsedHeight creates a persistent peek floor for maps-style sheets
+- BottomSheetScrollView handles scroll-to-drag handoff automatically
+- backdrop opacity scales between floor and ceiling heights
+- backdrop can pass through touches or close on tap
+
+Install:
+- npm install bottom-sheet react-native-gesture-handler react-native-reanimated react-native-safe-area-context
+- consumer app must already have the normal setup required by gesture-handler, reanimated, and safe-area-context
+
+Main component:
+- BottomSheet
+
+Main props:
+- snapPoints: array of snap point definitions (pixels, percentages, "content", anchor points)
+- initialSnapIndex: which snap point to open at (default 0)
+- open: controlled open state
+- defaultOpen: initial open state for uncontrolled usage (default true)
+- allowFullScreen: adds full available height as extra top snap point
+- dismissible: enables swipe-down and backdrop-tap dismiss (default true)
+- collapsedHeight: persistent floor snap point for peek states
+- detached: floats sheet above bottom edge with rounded corners on all sides
+- detachedPadding: padding around detached sheet (number or { bottom, horizontal, left, right, top, vertical })
+- cornerRadius: border radius for sheet corners (default 28)
+- fullScreenCornerRadius: corner radius at fullscreen height, interpolated during drag
+- dragRegion: "sheet" (entire surface draggable) or "handle" (only handle area)
+- backdropOpacity: maximum backdrop opacity (default 0.34)
+- backdropPressBehavior: "close" or "none" (default "close")
+- backdropColor: backdrop color (default "#000000")
+- backdropStyle: additional backdrop style
+- handleVisible: show/hide drag handle (default true)
+- handleColor: handle indicator color
+- handleStyle: additional handle area style
+- sheetStyle: style for sheet container
+- contentContainerStyle: style for content wrapper
+- applyContentInset: add bottom safe-area padding to content (default true)
+- contentBottomInset: extra bottom inset on top of safe area (default 0)
+- topInset: top inset limiting maximum height (default 0)
+- style: style for root overlay container
+- onOpenChange: (open: boolean) => void
+- onDismiss: () => void
+- onSnapChange: (index: number, height: number) => void
+
+Ref methods (BottomSheetRef):
+- present(): open at initialSnapIndex
+- dismiss(): close with spring animation
+- expand(): snap to highest configured point
+- snapToIndex(index): snap to specific index
+
+Snap point types:
+- number: absolute height in points
+- "${number}%": percentage of available height
+- "content": measured natural content height
+- BottomSheetAnchorPoint: measured from BottomSheetAnchor child layout via createBottomSheetAnchor
+
+Anchor snap points:
+- createBottomSheetAnchor(key, { offset? }): creates an anchor point definition
+- BottomSheetAnchor: marker View wrapper placed in sheet content, name must match key
+- snap height = anchor bottom edge + offset
+- anchors are measured in an off-screen container for correct layout
+
+Scrollable content:
+- BottomSheetScrollView: drop-in ScrollView replacement with drag handoff
+- sheet drags until ceiling, then inner scroll activates
+- pulling down from scroll offset zero hands gesture back to sheet
+- useBottomSheetInsets(): returns { bottom } for manual padding inside scroll views
+
+Detached mode:
+- detached=true floats sheet with padding and four-corner radius
+- combine with allowFullScreen for card-to-fullscreen morph
+- corner radius, margins, and shadow interpolate during morph
+
+Collapsed peek:
+- collapsedHeight prepends a floor snap point
+- combine with dismissible=false and backdropOpacity=0 for maps-style persistent peek
+
+Behavior rules:
+- snap target is chosen by nearest-snap with velocity projection
+- dismiss triggers when projected height < 50% of floor or velocity exceeds threshold
+- backdrop opacity interpolates: below floor fades toward zero, above floor scales from 58% to 100%
+- controlled mode requires open prop and onOpenChange handler
+- uncontrolled mode uses defaultOpen and manages state internally
+
+Minimal example:
+```tsx
+import { BottomSheet } from "@bobberz/bottom-sheet";
+
+<BottomSheet
+  snapPoints={["content", "72%"]}
+  allowFullScreen
+  initialSnapIndex={0}
+>
+  <YourContent />
+</BottomSheet>
+```
+
+Anchor example:
+```tsx
+import { BottomSheet, BottomSheetAnchor, createBottomSheetAnchor } from "@bobberz/bottom-sheet";
+
+const summaryAnchor = createBottomSheetAnchor("summary", { offset: 18 });
+const detailAnchor = createBottomSheetAnchor("detail", { offset: 18 });
+
+<BottomSheet snapPoints={[summaryAnchor, detailAnchor]} allowFullScreen>
+  <BottomSheetAnchor name="summary">
+    <SummarySection />
+  </BottomSheetAnchor>
+  <BottomSheetAnchor name="detail">
+    <DetailSection />
+  </BottomSheetAnchor>
+</BottomSheet>
+```
+
+Scrollable example:
+```tsx
+import { BottomSheet, BottomSheetScrollView, useBottomSheetInsets } from "@bobberz/bottom-sheet";
+
+function Content() {
+  const insets = useBottomSheetInsets();
+  return (
+    <BottomSheetScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
+      <LongContent />
+    </BottomSheetScrollView>
+  );
+}
+
+<BottomSheet snapPoints={["48%", "82%"]} allowFullScreen dragRegion="sheet" applyContentInset={false}>
+  <Content />
+</BottomSheet>
+```
+
+Public exports:
+- BottomSheet
+- BottomSheetAnchor
+- BottomSheetScrollView
+- createBottomSheetAnchor
+- useBottomSheetInsets
+- BottomSheetAnchorPoint (type)
+- BottomSheetAnchorProps (type)
+- BottomSheetDetachedPadding (type)
+- BottomSheetInsets (type)
+- BottomSheetProps (type)
+- BottomSheetRef (type)
+- BottomSheetSnapPoint (type)
+- BottomSheetScrollViewProps (type)
+
+Performance guidance:
+- gesture math runs on UI thread via Reanimated worklets
+- anchor positions are measured in an off-screen container to avoid layout thrashing
+- anchor registration is debounced to batch rapid layout changes
+- prefer pixel or percentage snap points when heights are known
+- keep children stable across renders
+- use sheetStyle for background instead of extra wrapper views
+- set applyContentInset=false when using BottomSheetScrollView and handle padding via useBottomSheetInsets
+
+Reference:
+- human documentation: ./DOCUMENTATION.md
+- repository demo app: ./example/src/demo/demo-screen.tsx
+- scenario definitions: ./example/src/demo/scenarios.tsx
