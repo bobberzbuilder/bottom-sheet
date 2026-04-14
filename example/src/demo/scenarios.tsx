@@ -10,8 +10,11 @@ import {
   BottomSheetAnchor,
   BottomSheetProps,
   BottomSheetScrollView,
+  TopSheetProps,
+  TopSheetScrollView,
   createBottomSheetAnchor,
   useBottomSheetInsets,
+  useTopSheetInsets,
 } from "@bobberz/bottom-sheet";
 
 type ScenarioSheetProps = Pick<
@@ -995,3 +998,312 @@ const styles = StyleSheet.create({
 });
 
 export const BOTTOM_SHEET_SCENARIOS = createScenarioDefinitions();
+
+type TopSheetScenarioSheetProps = Pick<
+  TopSheetProps,
+  | "allowFullScreen"
+  | "applyContentInset"
+  | "backdropOpacity"
+  | "backdropPressBehavior"
+  | "bottomInset"
+  | "collapsedHeight"
+  | "contentContainerStyle"
+  | "contentTopInset"
+  | "cornerRadius"
+  | "detached"
+  | "detachedPadding"
+  | "dismissible"
+  | "dragRegion"
+  | "fullScreenCornerRadius"
+  | "handleColor"
+  | "initialSnapIndex"
+  | "sheetStyle"
+  | "snapPoints"
+>;
+
+export type TopSheetScenarioRenderContext = {
+  currentHeight: number;
+  currentSnapIndex: number;
+  isOpen: boolean;
+};
+
+export type TopSheetScenarioDefinition = {
+  accent: string;
+  id: string;
+  infoRows: ScenarioInfoRow[];
+  renderContent: (
+    context: TopSheetScenarioRenderContext
+  ) => React.ReactNode;
+  sheetProps: TopSheetScenarioSheetProps;
+  summary: string;
+  title: string;
+};
+
+function TopSheetRuntimeSection({
+  accent,
+  context,
+  extraRows = [],
+}: {
+  accent: string;
+  context: TopSheetScenarioRenderContext;
+  extraRows?: DataRow[];
+}) {
+  const insets = useTopSheetInsets();
+  const { height: viewportHeight } = useWindowDimensions();
+
+  return (
+    <Section
+      rows={[
+        {
+          label: "Current height",
+          value: `${Math.round(context.currentHeight)} pt`,
+          valueColor: accent,
+        },
+        {
+          label: "Snap index",
+          value:
+            context.currentSnapIndex >= 0
+              ? `${context.currentSnapIndex}`
+              : "closed",
+        },
+        {
+          label: "Top safe area",
+          value: `${Math.round(insets.top)} pt`,
+        },
+        {
+          label: "Viewport height",
+          value: `${Math.round(viewportHeight)} pt`,
+        },
+        ...extraRows,
+      ]}
+      title="Runtime"
+    />
+  );
+}
+
+function TopSheetDetachedExample({
+  context,
+}: {
+  context: TopSheetScenarioRenderContext;
+}) {
+  return (
+    <View style={styles.stack}>
+      <SheetHeader
+        summary="detached · 42% / safe-area floor"
+        title="Top Sheet Detached"
+      />
+      <TopSheetRuntimeSection
+        accent={IOS_GREEN}
+        context={context}
+        extraRows={[
+          { label: "Mode", value: "detached card" },
+          { label: "Dismiss", value: "swipe up + backdrop" },
+        ]}
+      />
+      <Section
+        rows={[
+          {
+            detail: "24h volume $1.2M · trending",
+            label: "Token price",
+            value: "$0.0203",
+            valueColor: IOS_GREEN,
+          },
+          {
+            detail: "All-time high $0.041",
+            label: "24H change",
+            value: "+11.73%",
+            valueColor: IOS_GREEN,
+          },
+          {
+            detail: "Rank #142 by believers",
+            label: "Market cap",
+            value: "$20.3M",
+          },
+        ]}
+        title="Market overview"
+      />
+    </View>
+  );
+}
+
+function TopSheetDetachedToFullscreenExample({
+  context,
+}: {
+  context: TopSheetScenarioRenderContext;
+}) {
+  return (
+    <View style={[styles.stack, styles.fill]}>
+      <SheetHeader
+        summary="detached · 42% / safe-area floor"
+        title="Top Sheet To Fullscreen"
+      />
+      <TopSheetRuntimeSection
+        accent={IOS_GREEN}
+        context={context}
+        extraRows={[
+          { label: "Bottom ceiling", value: "safe area" },
+          { label: "Corner morph", value: "live" },
+        ]}
+      />
+      <Section
+        rows={[
+          {
+            detail: "24h volume $1.2M · trending",
+            label: "Token price",
+            value: "$0.0203",
+            valueColor: IOS_GREEN,
+          },
+          {
+            detail: "All-time high $0.041",
+            label: "24H change",
+            value: "+11.73%",
+            valueColor: IOS_GREEN,
+          },
+          {
+            detail: "Rank #142 by believers",
+            label: "Market cap",
+            value: "$20.3M",
+          },
+          {
+            detail: "8,530 active believers",
+            label: "Community",
+            value: "8.5K",
+            valueColor: IOS_TEAL,
+          },
+        ]}
+        title="Market overview"
+      />
+      <View style={styles.fillSpacer} />
+      <Section
+        rows={[
+          { label: "Claimed fees", value: "$564.4K", valueColor: IOS_GREEN },
+          { label: "Created by", value: "Bobby Ghoshal" },
+          { label: "Ticker", value: "DUPE" },
+        ]}
+        title="Token details"
+      />
+    </View>
+  );
+}
+
+function TopSheetScrollableExample({
+  context,
+}: {
+  context: TopSheetScenarioRenderContext;
+}) {
+  const insets = useTopSheetInsets();
+
+  return (
+    <TopSheetScrollView
+      contentContainerStyle={[
+        styles.scrollContent,
+        {
+          paddingTop: insets.top + 10,
+        },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
+      <SheetHeader
+        summary="attached · 48% / 82% / full · content drag"
+        title="Top Sheet Scrollable"
+      />
+      <TopSheetRuntimeSection
+        accent={IOS_TEAL}
+        context={context}
+        extraRows={[
+          { label: "Entries", value: `${ACTIVITY_LOG.length}` },
+          { label: "Drag region", value: "content" },
+        ]}
+      />
+      <Section
+        rows={ACTIVITY_LOG.map(([time, label, detail]) => ({
+          detail,
+          label,
+          value: time,
+          valueColor: IOS_TEAL,
+        }))}
+        title="Activity log"
+      />
+    </TopSheetScrollView>
+  );
+}
+
+function createTopSheetScenarioDefinitions(): TopSheetScenarioDefinition[] {
+  return [
+    {
+      accent: IOS_GREEN,
+      id: "top-detached",
+      infoRows: [
+        { label: "Mode", value: "detached" },
+        { label: "Snap", value: "42%" },
+        { label: "Dismiss", value: "swipe up + backdrop" },
+      ],
+      renderContent: (context) => <TopSheetDetachedExample context={context} />,
+      sheetProps: {
+        cornerRadius: 56,
+        detached: true,
+        detachedPadding: {
+          horizontal: 12,
+          top: 12,
+        },
+        initialSnapIndex: 0,
+        sheetStyle: styles.sheet,
+        snapPoints: ["42%"],
+      },
+      summary: "detached · 42%",
+      title: "Top Sheet Detached",
+    },
+    {
+      accent: IOS_GREEN,
+      id: "top-detached-fullscreen",
+      infoRows: [
+        { label: "Mode", value: "detached to fullscreen" },
+        { label: "Base", value: "42%" },
+        { label: "Bottom ceiling", value: "safe area" },
+      ],
+      renderContent: (context) => (
+        <TopSheetDetachedToFullscreenExample context={context} />
+      ),
+      sheetProps: {
+        allowFullScreen: true,
+        contentContainerStyle: styles.fill,
+        cornerRadius: 56,
+        detached: true,
+        detachedPadding: {
+          horizontal: 12,
+          top: 12,
+        },
+        fullScreenCornerRadius: 0,
+        initialSnapIndex: 0,
+        sheetStyle: styles.sheet,
+        snapPoints: ["42%"],
+      },
+      summary: "detached · 42% / safe-area floor",
+      title: "Top Sheet To Fullscreen",
+    },
+    {
+      accent: IOS_TEAL,
+      id: "top-scrollable-fullscreen",
+      infoRows: [
+        { label: "Mode", value: "attached" },
+        { label: "Snaps", value: "48% / 82% / full" },
+        { label: "Drag region", value: "sheet + scroll handoff" },
+      ],
+      renderContent: (context) => (
+        <TopSheetScrollableExample context={context} />
+      ),
+      sheetProps: {
+        allowFullScreen: true,
+        applyContentInset: false,
+        dragRegion: "sheet",
+        initialSnapIndex: 0,
+        sheetStyle: styles.sheet,
+        snapPoints: ["48%", "82%"],
+      },
+      summary: "attached · 48% / 82% / full · content drag",
+      title: "Top Sheet Scrollable",
+    },
+  ];
+}
+
+export const TOP_SHEET_SCENARIOS = createTopSheetScenarioDefinitions();

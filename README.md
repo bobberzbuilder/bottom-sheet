@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/@bobberz/bottom-sheet)](https://www.npmjs.com/package/@bobberz/bottom-sheet)
 
-`@bobberz/bottom-sheet` is a React Native component for performant bottom sheets where:
+`@bobberz/bottom-sheet` is a React Native library for performant bottom sheets and top sheets where:
 
 - snap points accept pixels, percentages, `"content"` sizing, and measured anchors
 - detached sheets can morph into fullscreen with live corner-radius interpolation
@@ -11,19 +11,21 @@
 - scrollable content hands off between sheet drag and inner scroll automatically
 - the backdrop can be configured to pass through touches or close on tap
 
+The library exports two main components: `BottomSheet` (slides up from the bottom) and `TopSheet` (slides down from the top). Both share the same snap-point system, gesture engine, and animation behavior.
+
 If you want a shorter machine-oriented summary, see [`llms.txt`](./llms.txt).
 
 ## What It Does
 
-`BottomSheet` is a flexible sheet container that slides up from the bottom of the screen.
+`BottomSheet` is a flexible sheet container that slides up from the bottom of the screen. `TopSheet` is its counterpart that slides down from the top.
 
-The component handles:
+Both components handle:
 
 - spring-based snap animation
 - multi-stop snap points
 - horizontal gesture rejection
 - backdrop opacity interpolation
-- rubber-band overscroll at top and bottom edges
+- rubber-band overscroll at edges
 - detached floating card mode
 - fullscreen expansion with corner morph
 - scroll-to-drag handoff for inner scrollable content
@@ -31,16 +33,22 @@ The component handles:
 
 ## Core Behavior
 
-These are the important behavior rules:
+These are the important behavior rules (they apply to both `BottomSheet` and `TopSheet` unless noted):
 
 1. The sheet snaps to the nearest snap point on release, projected by velocity.
-2. Swiping down past the floor dismisses when `dismissible` is true.
-3. When `dismissible={false}`, swiping below the floor rubber-bands instead of dismissing.
+2. Swiping past the floor dismisses when `dismissible` is true.
+3. When `dismissible={false}`, swiping below the floor rubber-bands instead of dismissing. For `TopSheet` at fullscreen with `dismissible={false}`, dragging collapses back to the lowest snap point instead of dismissing.
 4. Backdrop opacity scales between floor and ceiling heights. Below the floor it fades toward zero.
 5. The backdrop blocks touches when `backdropPressBehavior="close"` and passes them through with `"none"`.
-6. Anchor snap points are measured from child layout using `BottomSheetAnchor` marker views.
-7. `BottomSheetScrollView` enables scroll-to-drag handoff: the sheet drags until it reaches the ceiling, then inner scrolling takes over.
-8. Detached sheets float above the bottom edge with configurable padding and can morph into fullscreen when `allowFullScreen` is set.
+6. Anchor snap points are measured from child layout using `BottomSheetAnchor` / `TopSheetAnchor` marker views.
+7. `BottomSheetScrollView` / `TopSheetScrollView` enables scroll-to-drag handoff: the sheet drags until it reaches the ceiling, then inner scrolling takes over.
+8. Detached sheets float with configurable padding and can morph into fullscreen when `allowFullScreen` is set.
+
+### TopSheet-specific behavior
+
+- The drag handle starts at the **bottom** when collapsed and transitions to the **top** as the sheet expands to fullscreen.
+- At fullscreen the handle includes safe-area padding so content starts below the Dynamic Island / notch.
+- Fullscreen dismissal uses a slide-down gesture (like swiping a notification away). When `dismissible={false}`, this gesture collapses back to the lowest snap instead of dismissing.
 
 ## Installation
 
@@ -59,6 +67,8 @@ Your app must have:
 
 ## Quick Start
 
+### BottomSheet
+
 ```tsx
 import { BottomSheet } from "@bobberz/bottom-sheet";
 
@@ -71,6 +81,28 @@ export function Example() {
     >
       <YourContent />
     </BottomSheet>
+  );
+}
+```
+
+### TopSheet
+
+```tsx
+import { TopSheet } from "@bobberz/bottom-sheet";
+
+export function Example() {
+  return (
+    <TopSheet
+      snapPoints={["42%"]}
+      allowFullScreen
+      detached
+      detachedPadding={{ horizontal: 12, top: 12 }}
+      cornerRadius={56}
+      fullScreenCornerRadius={0}
+      initialSnapIndex={0}
+    >
+      <YourContent />
+    </TopSheet>
   );
 }
 ```
@@ -392,23 +424,182 @@ The sheet rubber-bands at its lowest snap point instead of dismissing. Backdrop 
 
 `collapsedHeight` is prepended to the snap points as the floor. Combined with `dismissible={false}`, this creates a persistent peek that the user can swipe up to expand.
 
+---
+
+## TopSheet
+
+`TopSheet` is the top-of-screen counterpart to `BottomSheet`. It slides down from the top edge and supports the same snap-point system, detached mode, fullscreen morphing, and scroll handoff.
+
+### TopSheet Props Reference
+
+`TopSheet` accepts the same props as `BottomSheet` with these differences:
+
+| Prop | Default | Notes |
+|---|---|---|
+| `bottomInset` | `0` | Limits the sheet's maximum downward extent (analogous to `topInset` on BottomSheet). |
+| `contentTopInset` | `0` | Extra top inset added to the content container, on top of the safe-area inset. |
+| `applyContentInset` | `true` | When true, adds **top** safe-area padding to the content container (BottomSheet adds bottom). |
+
+All other props (`snapPoints`, `allowFullScreen`, `detached`, `detachedPadding`, `cornerRadius`, `fullScreenCornerRadius`, `dismissible`, `dragRegion`, `backdropOpacity`, `backdropPressBehavior`, `handleVisible`, `handleColor`, `sheetStyle`, `contentContainerStyle`, `style`, `onOpenChange`, `onDismiss`, `onSnapChange`, etc.) work identically.
+
+### TopSheet Ref Methods
+
+Same as BottomSheet: `present()`, `dismiss()`, `expand()`, `snapToIndex(index)`.
+
+```tsx
+const sheetRef = useRef<TopSheetRef>(null);
+
+<TopSheet ref={sheetRef} ...>
+
+sheetRef.current?.present();
+sheetRef.current?.dismiss();
+sheetRef.current?.expand();
+sheetRef.current?.snapToIndex(1);
+```
+
+### TopSheet Scrollable Content
+
+Use `TopSheetScrollView` for scrollable content inside a TopSheet, and `useTopSheetInsets` for safe-area padding.
+
+```tsx
+import { TopSheet, TopSheetScrollView, useTopSheetInsets } from "@bobberz/bottom-sheet";
+
+function SheetContent() {
+  const insets = useTopSheetInsets();
+
+  return (
+    <TopSheetScrollView
+      contentContainerStyle={{ paddingTop: insets.top + 10 }}
+    >
+      <LongContent />
+    </TopSheetScrollView>
+  );
+}
+
+<TopSheet
+  snapPoints={["48%", "82%"]}
+  allowFullScreen
+  dragRegion="sheet"
+  applyContentInset={false}
+>
+  <SheetContent />
+</TopSheet>
+```
+
+### TopSheet Detached to Fullscreen
+
+A detached TopSheet that morphs from a floating card to fullscreen:
+
+```tsx
+<TopSheet
+  detached
+  detachedPadding={{ horizontal: 12, top: 12 }}
+  cornerRadius={56}
+  fullScreenCornerRadius={0}
+  allowFullScreen
+  snapPoints={["42%"]}
+>
+  <CardContent />
+</TopSheet>
+```
+
+When collapsed, the sheet is a rounded floating card at the top. Dragging the handle down expands it to fullscreen. Corner radius, margins, and shadow interpolate smoothly. The drag handle transitions from the bottom of the card to the top when fullscreen.
+
+### TopSheet Embedded in a Page
+
+A non-dismissible TopSheet can act as an embedded card that floats over scrollable page content:
+
+```tsx
+import { TopSheet } from "@bobberz/bottom-sheet";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowDimensions } from "react-native";
+
+export function PageWithEmbeddedSheet() {
+  const { height: screenHeight } = useWindowDimensions();
+  const safeArea = useSafeAreaInsets();
+  const sheetHeight = screenHeight * 0.42 + safeArea.top + 12;
+
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: sheetHeight + 16 }}>
+        <PageContent />
+      </ScrollView>
+
+      <TopSheet
+        allowFullScreen
+        backdropOpacity={0}
+        backdropPressBehavior="none"
+        cornerRadius={56}
+        defaultOpen
+        detached
+        detachedPadding={{ horizontal: 12, top: safeArea.top + 12 }}
+        dismissible={false}
+        dragRegion="sheet"
+        fullScreenCornerRadius={0}
+        open
+        snapPoints={["42%"]}
+      >
+        <CardContent />
+      </TopSheet>
+    </View>
+  );
+}
+```
+
+The sheet floats at the top with no backdrop. Page content scrolls underneath it. Dragging the sheet expands it to fullscreen; from fullscreen it collapses back to the card (since `dismissible={false}` prevents full dismissal).
+
+### TopSheet Anchor Snap Points
+
+Works the same as BottomSheet anchors, using `TopSheetAnchor` and `createTopSheetAnchor`:
+
+```tsx
+import { TopSheet, TopSheetAnchor, createTopSheetAnchor } from "@bobberz/bottom-sheet";
+
+const headerAnchor = createTopSheetAnchor("header", { offset: 18 });
+
+<TopSheet snapPoints={[headerAnchor]} allowFullScreen>
+  <TopSheetAnchor name="header">
+    <HeaderSection />
+  </TopSheetAnchor>
+  <DetailSection />
+</TopSheet>
+```
+
 ## Public Exports
 
 The package exports:
+
+**BottomSheet**
 
 - `BottomSheet`
 - `BottomSheetAnchor`
 - `BottomSheetScrollView`
 - `createBottomSheetAnchor`
 - `useBottomSheetInsets`
-- `BottomSheetAnchorPoint`
-- `BottomSheetAnchorProps`
-- `BottomSheetDetachedPadding`
-- `BottomSheetInsets`
-- `BottomSheetProps`
-- `BottomSheetRef`
-- `BottomSheetSnapPoint`
-- `BottomSheetScrollViewProps`
+- `BottomSheetAnchorPoint` (type)
+- `BottomSheetAnchorProps` (type)
+- `BottomSheetDetachedPadding` (type)
+- `BottomSheetInsets` (type)
+- `BottomSheetProps` (type)
+- `BottomSheetRef` (type)
+- `BottomSheetSnapPoint` (type)
+- `BottomSheetScrollViewProps` (type)
+
+**TopSheet**
+
+- `TopSheet`
+- `TopSheetAnchor`
+- `TopSheetScrollView`
+- `createTopSheetAnchor`
+- `useTopSheetInsets`
+- `TopSheetAnchorPoint` (type)
+- `TopSheetAnchorProps` (type)
+- `TopSheetDetachedPadding` (type)
+- `TopSheetInsets` (type)
+- `TopSheetProps` (type)
+- `TopSheetRef` (type)
+- `TopSheetSnapPoint` (type)
+- `TopSheetScrollViewProps` (type)
 
 ## Performance Notes
 
@@ -432,7 +623,7 @@ For best results:
 
 The repo includes a working Expo demo app in `example/`.
 
-It covers ten scenarios: dynamic content, fixed height, percentage snaps, anchor snaps, detached cards, detached-to-fullscreen morphing, non-dismissible sheets, collapsible peek, multi-stop workflow snaps, and scrollable fullscreen.
+It covers bottom sheet scenarios (dynamic content, fixed height, percentage snaps, anchor snaps, detached cards, detached-to-fullscreen morphing, non-dismissible sheets, collapsible peek, multi-stop workflow snaps, scrollable fullscreen) and top sheet scenarios (detached, detached-to-fullscreen, scrollable fullscreen, and an embedded page example).
 
 From this package directory:
 

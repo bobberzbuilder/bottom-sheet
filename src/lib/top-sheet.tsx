@@ -68,8 +68,8 @@ type AnchorLayout = {
   y: number;
 };
 
-type BottomSheetInternalContextValue = {
-  contentInsets: BottomSheetInsets;
+type TopSheetInternalContextValue = {
+  contentInsets: TopSheetInsets;
   contentRootRef: React.RefObject<View | null>;
   registerAnchor: (name: string, layout: AnchorLayout) => void;
   scrollableOffsetY: SharedValue<number>;
@@ -80,20 +80,20 @@ type BottomSheetInternalContextValue = {
   unregisterAnchor: (name: string) => void;
 };
 
-const BottomSheetInternalContext =
-  React.createContext<BottomSheetInternalContextValue | null>(null);
+const TopSheetInternalContext =
+  React.createContext<TopSheetInternalContextValue | null>(null);
 
-export type BottomSheetInsets = {
-  bottom: number;
+export type TopSheetInsets = {
+  top: number;
 };
 
-export type BottomSheetAnchorPoint = Readonly<{
+export type TopSheetAnchorPoint = Readonly<{
   key: string;
   offset?: number;
   type: "anchor";
 }>;
 
-export type BottomSheetDetachedPadding =
+export type TopSheetDetachedPadding =
   | number
   | Partial<{
       bottom: number;
@@ -104,34 +104,35 @@ export type BottomSheetDetachedPadding =
       vertical: number;
     }>;
 
-export type BottomSheetSnapPoint =
+export type TopSheetSnapPoint =
   | number
   | `${number}%`
   | "content"
-  | BottomSheetAnchorPoint;
+  | TopSheetAnchorPoint;
 
-export type BottomSheetRef = {
+export type TopSheetRef = {
   dismiss: () => void;
   expand: () => void;
   present: () => void;
   snapToIndex: (index: number) => void;
 };
 
-export type BottomSheetProps = {
-  backdropColor?: string;
+export type TopSheetProps = {
   allowFullScreen?: boolean;
   applyContentInset?: boolean;
+  backdropColor?: string;
   backdropOpacity?: number;
   backdropPressBehavior?: "close" | "none";
   backdropStyle?: StyleProp<ViewStyle>;
+  bottomInset?: number;
   children: React.ReactNode;
-  collapsedHeight?: BottomSheetSnapPoint;
-  contentBottomInset?: number;
+  collapsedHeight?: TopSheetSnapPoint;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  contentTopInset?: number;
   cornerRadius?: number;
   defaultOpen?: boolean;
   detached?: boolean;
-  detachedPadding?: BottomSheetDetachedPadding;
+  detachedPadding?: TopSheetDetachedPadding;
   dismissible?: boolean;
   dragRegion?: "handle" | "sheet";
   fullScreenCornerRadius?: number;
@@ -144,16 +145,15 @@ export type BottomSheetProps = {
   onSnapChange?: (index: number, height: number) => void;
   open?: boolean;
   sheetStyle?: StyleProp<ViewStyle>;
-  snapPoints?: readonly BottomSheetSnapPoint[];
+  snapPoints?: readonly TopSheetSnapPoint[];
   style?: StyleProp<ViewStyle>;
-  topInset?: number;
 };
 
-export type BottomSheetAnchorProps = ViewProps & {
+export type TopSheetAnchorProps = ViewProps & {
   name: string;
 };
 
-export type BottomSheetScrollViewProps = ScrollViewProps;
+export type TopSheetScrollViewProps = ScrollViewProps;
 
 type ResolvedDetachedPadding = {
   bottom: number;
@@ -187,8 +187,8 @@ type AnimationTarget =
     };
 
 function isAnchorSnapPoint(
-  snapPoint: BottomSheetSnapPoint
-): snapPoint is BottomSheetAnchorPoint {
+  snapPoint: TopSheetSnapPoint
+): snapPoint is TopSheetAnchorPoint {
   return typeof snapPoint === "object" && snapPoint.type === "anchor";
 }
 
@@ -229,14 +229,8 @@ function rubberBand(distance: number) {
   return (distance * RUBBER_BAND_FACTOR) / (1 + distance / 140);
 }
 
-function projectHeight(height: number, velocityY: number) {
-  "worklet";
-
-  return height - velocityY * SNAP_PROJECTION_TIME;
-}
-
 function normalizeDetachedPadding(
-  value: BottomSheetDetachedPadding | undefined
+  value: TopSheetDetachedPadding | undefined
 ): ResolvedDetachedPadding {
   if (typeof value === "number") {
     return {
@@ -251,15 +245,15 @@ function normalizeDetachedPadding(
   const vertical = value?.vertical ?? 0;
 
   return {
-    bottom: value?.bottom ?? DEFAULT_DETACHED_EDGE + vertical,
+    bottom: value?.bottom ?? vertical,
     left: value?.left ?? horizontal,
     right: value?.right ?? horizontal,
-    top: value?.top ?? vertical,
+    top: value?.top ?? DEFAULT_DETACHED_EDGE + vertical,
   };
 }
 
 function resolveSnapPoint(
-  snapPoint: BottomSheetSnapPoint,
+  snapPoint: TopSheetSnapPoint,
   availableHeight: number,
   contentHeight: number,
   anchors: ReadonlyMap<string, AnchorLayout>
@@ -296,11 +290,11 @@ function resolveSnapPoint(
 }
 
 function buildSnapPoints(
-  snapPoints: readonly BottomSheetSnapPoint[] | undefined,
-  collapsedHeight: BottomSheetSnapPoint | undefined
+  snapPoints: readonly TopSheetSnapPoint[] | undefined,
+  collapsedHeight: TopSheetSnapPoint | undefined
 ) {
   const next =
-    snapPoints != null && snapPoints.length > 0 ? [...snapPoints] : (["content"] as BottomSheetSnapPoint[]);
+    snapPoints != null && snapPoints.length > 0 ? [...snapPoints] : (["content"] as TopSheetSnapPoint[]);
 
   if (collapsedHeight != null) {
     next.unshift(collapsedHeight);
@@ -335,38 +329,12 @@ function getNearestSnapIndex(height: number, snapHeights: readonly number[]) {
   return bestIndex;
 }
 
-function pickTargetSnap(
-  currentHeight: number,
-  velocityY: number,
-  snapHeights: readonly number[],
-  dismissible: boolean
-) {
-  "worklet";
-
-  if (snapHeights.length === 0) {
-    return -1;
-  }
-
-  const projectedHeight = projectHeight(currentHeight, velocityY);
-  const floorHeight = snapHeights[0];
-  const shouldDismiss =
-    dismissible &&
-    (projectedHeight < Math.max(floorHeight * 0.5, DISMISS_DISTANCE) ||
-      (velocityY > DISMISS_VELOCITY && currentHeight <= floorHeight + 48));
-
-  if (shouldDismiss) {
-    return -1;
-  }
-
-  return getNearestSnapIndex(projectedHeight, snapHeights);
-}
-
-export function createBottomSheetAnchor(
+export function createTopSheetAnchor(
   key: string,
   options?: {
     offset?: number;
   }
-): BottomSheetAnchorPoint {
+): TopSheetAnchorPoint {
   return {
     key,
     offset: options?.offset,
@@ -374,18 +342,18 @@ export function createBottomSheetAnchor(
   };
 }
 
-export function useBottomSheetInsets() {
-  return React.useContext(BottomSheetInternalContext)?.contentInsets ?? {
-    bottom: 0,
+export function useTopSheetInsets() {
+  return React.useContext(TopSheetInternalContext)?.contentInsets ?? {
+    top: 0,
   };
 }
 
-export function BottomSheetAnchor({
+export function TopSheetAnchor({
   name,
   onLayout,
   ...props
-}: BottomSheetAnchorProps) {
-  const context = React.useContext(BottomSheetInternalContext);
+}: TopSheetAnchorProps) {
+  const context = React.useContext(TopSheetInternalContext);
   const anchorRef = React.useRef<View | null>(null);
   const measureRef = React.useRef<(event?: LayoutChangeEvent) => void>(() => {});
   const pendingFrameRef = React.useRef<number | null>(null);
@@ -450,15 +418,15 @@ export function BottomSheetAnchor({
   return <View {...props} onLayout={measure} ref={anchorRef} />;
 }
 
-export function BottomSheetScrollView({
+export function TopSheetScrollView({
   alwaysBounceVertical = true,
   bounces = true,
   onScroll,
   scrollEnabled,
   scrollEventThrottle = 16,
   ...props
-}: BottomSheetScrollViewProps) {
-  const context = React.useContext(BottomSheetInternalContext);
+}: TopSheetScrollViewProps) {
+  const context = React.useContext(TopSheetInternalContext);
   const onScrollRef = useLatestRef(onScroll);
   const [derivedScrollEnabled, setDerivedScrollEnabled] = React.useState(false);
 
@@ -543,8 +511,8 @@ export function BottomSheetScrollView({
   );
 }
 
-export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
-  function BottomSheet(
+export const TopSheet = React.forwardRef<TopSheetRef, TopSheetProps>(
+  function TopSheet(
     {
       allowFullScreen = false,
       applyContentInset = true,
@@ -552,10 +520,11 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
       backdropOpacity = DEFAULT_BACKDROP_OPACITY,
       backdropPressBehavior = "close",
       backdropStyle,
+      bottomInset = 0,
       children,
       collapsedHeight,
-      contentBottomInset = 0,
       contentContainerStyle,
+      contentTopInset = 0,
       cornerRadius = DEFAULT_CORNER_RADIUS,
       defaultOpen = true,
       detached = false,
@@ -574,7 +543,6 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
       sheetStyle,
       snapPoints,
       style,
-      topInset = 0,
     },
     ref
   ) {
@@ -606,15 +574,14 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
 
     const contentInsets = React.useMemo(
       () => ({
-        bottom: contentBottomInset + safeAreaInsets.bottom,
+        top: contentTopInset + safeAreaInsets.top,
       }),
-      [contentBottomInset, safeAreaInsets.bottom]
+      [contentTopInset, safeAreaInsets.top]
     );
 
-    const topBoundaryInset = allowFullScreen
-      ? Math.max(topInset, safeAreaInsets.top)
-      : topInset;
-    const availableHeight = Math.max(dimensions.height - topBoundaryInset, 0);
+    const availableHeight = allowFullScreen
+      ? dimensions.height
+      : Math.max(dimensions.height - bottomInset, 0);
     const requestedSnapPoints = React.useMemo(
       () => buildSnapPoints(snapPoints, collapsedHeight),
       [collapsedHeight, snapPoints]
@@ -707,10 +674,13 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
     );
 
     const currentHeight = useSharedValue(0);
+    const dismissOffset = useSharedValue(0);
     const dragStartHeight = useSharedValue(0);
+    const dragStartDismissOffset = useSharedValue(0);
     const snapHeights = useSharedValue<number[]>([]);
     const currentIndex = useSharedValue(-1);
     const isDragging = useSharedValue(false);
+    const isSlideMode = useSharedValue(false);
     const scrollableOffsetY = useSharedValue(0);
     const scrollableRegistered = useSharedValue(false);
     const scrollGestureCanCaptureSheet = useSharedValue(true);
@@ -827,6 +797,16 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
       [latestDismiss, requestOpenChange]
     );
 
+    const finalizeSlideOffDismiss = React.useCallback(() => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      currentHeight.value = 0;
+      dismissOffset.value = 0;
+      finalizeDismiss(true, true);
+    }, [currentHeight, dismissOffset, finalizeDismiss]);
+
     const markAnimationTargetClosed = React.useCallback(() => {
       animationTargetRef.current = {
         type: "closed",
@@ -867,6 +847,7 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
         currentIndex.value = nextIndex;
 
         if (isFirstPresent) {
+          dismissOffset.value = withTiming(0, PRESENT_TIMING_CONFIG);
           currentHeight.value = withTiming(targetHeight, PRESENT_TIMING_CONFIG, (finished) => {
             if (!finished) {
               return;
@@ -875,6 +856,7 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
             runOnJS(finalizeSnap)(nextIndex, targetHeight);
           });
         } else {
+          dismissOffset.value = withSpring(0, SPRING_CONFIG);
           currentHeight.value = withSpring(targetHeight, SPRING_CONFIG, (finished) => {
             if (!finished) {
               return;
@@ -884,7 +866,7 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
           });
         }
       },
-      [currentHeight, currentIndex, finalizeSnap, resolvedSnapHeights]
+      [currentHeight, currentIndex, dismissOffset, finalizeSnap, resolvedSnapHeights]
     );
 
     const animateToClosed = React.useCallback(
@@ -901,6 +883,8 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
           type: "closed",
         };
         cancelAnimation(currentHeight);
+        cancelAnimation(dismissOffset);
+        dismissOffset.value = 0;
         currentIndex.value = -1;
         currentHeight.value = withSpring(0, CLOSE_SPRING_CONFIG, (finished) => {
           if (!finished) {
@@ -910,7 +894,7 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
           runOnJS(finalizeDismiss)(callDismiss, callOpenChange);
         });
       },
-      [currentHeight, currentIndex, finalizeDismiss]
+      [currentHeight, currentIndex, dismissOffset, finalizeDismiss]
     );
 
     React.useImperativeHandle(
@@ -996,8 +980,9 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
       return () => {
         isMountedRef.current = false;
         cancelAnimation(currentHeight);
+        cancelAnimation(dismissOffset);
       };
-    }, [currentHeight]);
+    }, [currentHeight, dismissOffset]);
 
     const handleContentLayout = React.useCallback(
       (event: LayoutChangeEvent) => {
@@ -1020,9 +1005,17 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
         .failOffsetX([-24, 24])
         .onBegin(() => {
           cancelAnimation(currentHeight);
+          cancelAnimation(dismissOffset);
           dragStartHeight.value = currentHeight.value;
+          dragStartDismissOffset.value = dismissOffset.value;
           isDragging.value = true;
           sheetGestureOwnsTouch.value = false;
+
+          // At fullscreen, use slide mode: translateY-based dismiss
+          isSlideMode.value =
+            allowFullScreen &&
+            currentHeight.value >= interactiveMaxHeight.value - SNAP_EPSILON;
+
           scrollGestureCanCaptureSheet.value =
             !scrollableRegistered.value ||
             currentHeight.value < interactiveMaxHeight.value - SNAP_EPSILON ||
@@ -1037,34 +1030,64 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
           }
 
           const hasScrollable = scrollableRegistered.value;
-          const shouldAllowScrollableCapture =
-            !hasScrollable ||
-            currentHeight.value < maxHeight - SNAP_EPSILON ||
-            (scrollGestureCanCaptureSheet.value &&
-              scrollableOffsetY.value <= SNAP_EPSILON &&
-              event.translationY > 0);
 
-          if (hasScrollable && !shouldAllowScrollableCapture) {
-            return;
+          if (isSlideMode.value) {
+            // Fullscreen slide mode: drag down slides the sheet down (like bottom sheet dismiss)
+            const shouldAllowScrollableCapture =
+              !hasScrollable ||
+              (scrollGestureCanCaptureSheet.value &&
+                scrollableOffsetY.value <= SNAP_EPSILON &&
+                event.translationY > 0);
+
+            if (hasScrollable && !shouldAllowScrollableCapture) {
+              return;
+            }
+
+            sheetGestureOwnsTouch.value = true;
+            const nextOffset = dragStartDismissOffset.value + event.translationY;
+
+            if (nextOffset < 0) {
+              dismissOffset.value = -rubberBand(-nextOffset);
+              return;
+            }
+
+            if (!dismissible && nextOffset > 0) {
+              dismissOffset.value = rubberBand(nextOffset);
+              return;
+            }
+
+            dismissOffset.value = nextOffset;
+          } else {
+            // Expand mode: drag down increases height (top sheet grows downward)
+            const shouldAllowScrollableCapture =
+              !hasScrollable ||
+              currentHeight.value < maxHeight - SNAP_EPSILON ||
+              (scrollGestureCanCaptureSheet.value &&
+                scrollableOffsetY.value <= SNAP_EPSILON &&
+                event.translationY < 0);
+
+            if (hasScrollable && !shouldAllowScrollableCapture) {
+              return;
+            }
+
+            sheetGestureOwnsTouch.value = true;
+            const floorHeight = heights[0];
+            const nextHeight = dragStartHeight.value + event.translationY;
+
+            if (nextHeight < floorHeight) {
+              currentHeight.value = dismissible
+                ? Math.max(0, nextHeight)
+                : floorHeight - rubberBand(floorHeight - nextHeight);
+              return;
+            }
+
+            if (nextHeight > maxHeight) {
+              currentHeight.value = maxHeight + rubberBand(nextHeight - maxHeight);
+              return;
+            }
+
+            currentHeight.value = nextHeight;
           }
-
-          sheetGestureOwnsTouch.value = true;
-          const floorHeight = heights[0];
-          const nextHeight = dragStartHeight.value - event.translationY;
-
-          if (nextHeight < floorHeight) {
-            currentHeight.value = dismissible
-              ? Math.max(0, nextHeight)
-              : floorHeight - rubberBand(floorHeight - nextHeight);
-            return;
-          }
-
-          if (nextHeight > maxHeight) {
-            currentHeight.value = maxHeight + rubberBand(nextHeight - maxHeight);
-            return;
-          }
-
-          currentHeight.value = nextHeight;
         })
         .onEnd((event) => {
           isDragging.value = false;
@@ -1079,35 +1102,104 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
             return;
           }
 
-          const targetIndex = pickTargetSnap(
-            currentHeight.value,
-            event.velocityY,
-            heights,
-            dismissible
-          );
+          if (isSlideMode.value) {
+            // Slide mode: either dismiss fully or snap back to fullscreen
+            const maxHeight = interactiveMaxHeight.value;
+            const projectedOffset =
+              dismissOffset.value + event.velocityY * SNAP_PROJECTION_TIME;
 
-          if (targetIndex < 0) {
-            runOnJS(markAnimationTargetClosed)();
-            currentIndex.value = -1;
-            currentHeight.value = withSpring(0, CLOSE_SPRING_CONFIG, (finished) => {
-              if (!finished) {
-                return;
-              }
+            const shouldDismiss =
+              dismissible &&
+              (projectedOffset > maxHeight * 0.5 ||
+                event.velocityY > DISMISS_VELOCITY);
 
-              runOnJS(finalizeDismiss)(true, true);
-            });
-            return;
-          }
+            if (shouldDismiss) {
+              runOnJS(markAnimationTargetClosed)();
+              currentIndex.value = -1;
+              dismissOffset.value = withSpring(
+                maxHeight,
+                CLOSE_SPRING_CONFIG,
+                (finished) => {
+                  if (!finished) {
+                    return;
+                  }
 
-          currentIndex.value = targetIndex;
-          const targetHeight = heights[targetIndex];
-          currentHeight.value = withSpring(targetHeight, SPRING_CONFIG, (finished) => {
-            if (!finished) {
+                  runOnJS(finalizeSlideOffDismiss)();
+                }
+              );
               return;
             }
 
-            runOnJS(finalizeSnap)(targetIndex, targetHeight);
-          });
+            if (!dismissible && heights.length > 1) {
+              const shouldCollapse =
+                projectedOffset > maxHeight * 0.3 ||
+                event.velocityY > DISMISS_VELOCITY;
+
+              if (shouldCollapse) {
+                const targetIndex = 0;
+                const targetHeight = heights[0];
+                currentIndex.value = targetIndex;
+                dismissOffset.value = withSpring(0, SPRING_CONFIG);
+                currentHeight.value = withSpring(
+                  targetHeight,
+                  SPRING_CONFIG,
+                  (finished) => {
+                    if (!finished) {
+                      return;
+                    }
+
+                    runOnJS(finalizeSnap)(targetIndex, targetHeight);
+                  }
+                );
+                return;
+              }
+            }
+
+            // Not enough to dismiss/collapse: snap back to fullscreen
+            dismissOffset.value = withSpring(0, SPRING_CONFIG);
+          } else {
+            // Expand mode: project height via top-sheet physics
+            const projectedHeight =
+              currentHeight.value + event.velocityY * SNAP_PROJECTION_TIME;
+            const floorHeight = heights[0];
+            const shouldDismiss =
+              dismissible &&
+              (projectedHeight < Math.max(floorHeight * 0.5, DISMISS_DISTANCE) ||
+                (-event.velocityY > DISMISS_VELOCITY &&
+                  currentHeight.value <= floorHeight + 48));
+
+            if (shouldDismiss) {
+              runOnJS(markAnimationTargetClosed)();
+              currentIndex.value = -1;
+              currentHeight.value = withSpring(
+                0,
+                CLOSE_SPRING_CONFIG,
+                (finished) => {
+                  if (!finished) {
+                    return;
+                  }
+
+                  runOnJS(finalizeDismiss)(true, true);
+                }
+              );
+              return;
+            }
+
+            const targetIndex = getNearestSnapIndex(projectedHeight, heights);
+            const targetHeight = heights[targetIndex];
+            currentIndex.value = targetIndex;
+            currentHeight.value = withSpring(
+              targetHeight,
+              SPRING_CONFIG,
+              (finished) => {
+                if (!finished) {
+                  return;
+                }
+
+                runOnJS(finalizeSnap)(targetIndex, targetHeight);
+              }
+            );
+          }
         })
         .onFinalize(() => {
           isDragging.value = false;
@@ -1115,14 +1207,19 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
           scrollGestureCanCaptureSheet.value = true;
         });
     }, [
+      allowFullScreen,
       currentHeight,
       currentIndex,
+      dismissOffset,
       dismissible,
+      dragStartDismissOffset,
       dragStartHeight,
       finalizeDismiss,
+      finalizeSlideOffDismiss,
       finalizeSnap,
       interactiveMaxHeight,
       isDragging,
+      isSlideMode,
       markAnimationTargetClosed,
       sheetGestureOwnsTouch,
       scrollGestureCanCaptureSheet,
@@ -1135,19 +1232,24 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
       const heights = snapHeights.value;
       const maxHeight = interactiveMaxHeight.value;
       const floorHeight = heights[0] ?? 0;
+      // Factor in dismiss slide offset for backdrop fade
+      const effectiveHeight = Math.max(
+        0,
+        currentHeight.value - dismissOffset.value
+      );
       let progress = 0;
 
-      if (currentHeight.value > 0) {
+      if (effectiveHeight > 0) {
         if (maxHeight <= floorHeight + SNAP_EPSILON) {
-          progress = clamp(currentHeight.value / Math.max(maxHeight, 1), 0, 1);
-        } else if (currentHeight.value <= floorHeight) {
+          progress = clamp(effectiveHeight / Math.max(maxHeight, 1), 0, 1);
+        } else if (effectiveHeight <= floorHeight) {
           progress =
-            clamp(currentHeight.value / Math.max(floorHeight, 1), 0, 1) *
+            clamp(effectiveHeight / Math.max(floorHeight, 1), 0, 1) *
             BACKDROP_MIN_VISIBILITY;
         } else {
           const range = Math.max(maxHeight - floorHeight, 1);
           const steppedProgress = clamp(
-            (currentHeight.value - floorHeight) / range,
+            (effectiveHeight - floorHeight) / range,
             0,
             1
           );
@@ -1172,11 +1274,11 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
           ? clamp((currentHeight.value - minHeight) / morphRange, 0, 1)
           : 0;
 
-      const bottomMargin =
+      const topMargin =
         detached && allowFullScreen
-          ? resolvedDetachedPadding.bottom * (1 - morphProgress)
+          ? resolvedDetachedPadding.top * (1 - morphProgress)
           : detached
-            ? resolvedDetachedPadding.bottom
+            ? resolvedDetachedPadding.top
             : 0;
       const leftMargin =
         detached && allowFullScreen
@@ -1190,22 +1292,22 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
           : detached
             ? resolvedDetachedPadding.right
             : 0;
-      const topMargin =
+      const bottomMargin =
         detached && allowFullScreen
-          ? resolvedDetachedPadding.top * (1 - morphProgress)
+          ? resolvedDetachedPadding.bottom * (1 - morphProgress)
           : detached
-            ? resolvedDetachedPadding.top
+            ? resolvedDetachedPadding.bottom
             : 0;
 
       return {
-        borderTopLeftRadius:
+        borderBottomLeftRadius:
           cornerRadius - (cornerRadius - fullscreenRadius) * morphProgress,
-        borderTopRightRadius:
+        borderBottomRightRadius:
           cornerRadius - (cornerRadius - fullscreenRadius) * morphProgress,
-        borderBottomLeftRadius: detached
+        borderTopLeftRadius: detached
           ? cornerRadius - (cornerRadius - fullscreenRadius) * morphProgress
           : 0,
-        borderBottomRightRadius: detached
+        borderTopRightRadius: detached
           ? cornerRadius - (cornerRadius - fullscreenRadius) * morphProgress
           : 0,
         height: currentHeight.value,
@@ -1217,9 +1319,10 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
         transform: [
           {
             translateY:
-              !dismissible && currentHeight.value < minHeight
-                ? -(minHeight - currentHeight.value) * 0.08
-                : 0,
+              dismissOffset.value +
+              (!dismissible && currentHeight.value < minHeight
+                ? (minHeight - currentHeight.value) * 0.08
+                : 0),
           },
         ],
       };
@@ -1237,7 +1340,46 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
       resolvedDetachedPadding.top,
     ]);
 
-    const contextValue = React.useMemo<BottomSheetInternalContextValue>(
+    const topSafeArea = safeAreaInsets.top;
+
+    // Handle at top: fades in as sheet approaches fullscreen, includes safe area padding
+    const animatedTopHandleStyle = useAnimatedStyle(() => {
+      const maxHeight = interactiveMaxHeight.value;
+      const minHeight = lowestSnapHeight;
+      const morphRange = Math.max(maxHeight - minHeight, 1);
+      const handleMorph = allowFullScreen
+        ? clamp((currentHeight.value - minHeight) / morphRange, 0, 1)
+        : 0;
+      const handleHeight = handleVisible
+        ? DEFAULT_HANDLE_AREA_HEIGHT
+        : 8;
+
+      return {
+        minHeight: handleMorph * (handleHeight + topSafeArea),
+        paddingTop: handleMorph * topSafeArea,
+        opacity: handleMorph,
+      };
+    }, [allowFullScreen, handleVisible, lowestSnapHeight, topSafeArea]);
+
+    // Handle at bottom: visible when collapsed, fades out approaching fullscreen
+    const animatedBottomHandleStyle = useAnimatedStyle(() => {
+      const maxHeight = interactiveMaxHeight.value;
+      const minHeight = lowestSnapHeight;
+      const morphRange = Math.max(maxHeight - minHeight, 1);
+      const handleMorph = allowFullScreen
+        ? clamp((currentHeight.value - minHeight) / morphRange, 0, 1)
+        : 0;
+      const handleHeight = handleVisible
+        ? DEFAULT_HANDLE_AREA_HEIGHT
+        : 8;
+
+      return {
+        minHeight: (1 - handleMorph) * handleHeight,
+        opacity: 1 - handleMorph,
+      };
+    }, [allowFullScreen, handleVisible, lowestSnapHeight]);
+
+    const contextValue = React.useMemo<TopSheetInternalContextValue>(
       () => ({
         contentInsets,
         contentRootRef,
@@ -1270,45 +1412,60 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
       return null;
     }
 
-    const handle = dragRegion === "handle" ? (
+    const handleIndicator = handleVisible ? (
+      <View
+        style={[
+          styles.handleIndicator,
+          { backgroundColor: handleColor },
+        ]}
+      />
+    ) : null;
+
+    const topHandle = dragRegion === "handle" ? (
       <GestureDetector gesture={panGesture}>
         <Animated.View
           style={[
             styles.handleArea,
-            !handleVisible && styles.hiddenHandleArea,
+            animatedTopHandleStyle,
             handleStyle,
           ]}
         >
-          {handleVisible ? (
-            <View
-              style={[
-                styles.handleIndicator,
-                {
-                  backgroundColor: handleColor,
-                },
-              ]}
-            />
-          ) : null}
+          {handleIndicator}
         </Animated.View>
       </GestureDetector>
     ) : (
       <Animated.View
         style={[
           styles.handleArea,
-          !handleVisible && styles.hiddenHandleArea,
+          animatedTopHandleStyle,
           handleStyle,
         ]}
       >
-        {handleVisible ? (
-          <View
-            style={[
-              styles.handleIndicator,
-              {
-                backgroundColor: handleColor,
-              },
-            ]}
-          />
-        ) : null}
+        {handleIndicator}
+      </Animated.View>
+    );
+
+    const bottomHandle = dragRegion === "handle" ? (
+      <GestureDetector gesture={panGesture}>
+        <Animated.View
+          style={[
+            styles.handleArea,
+            animatedBottomHandleStyle,
+            handleStyle,
+          ]}
+        >
+          {handleIndicator}
+        </Animated.View>
+      </GestureDetector>
+    ) : (
+      <Animated.View
+        style={[
+          styles.handleArea,
+          animatedBottomHandleStyle,
+          handleStyle,
+        ]}
+      >
+        {handleIndicator}
       </Animated.View>
     );
 
@@ -1321,8 +1478,8 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
           sheetStyle,
         ]}
       >
-        {handle}
-        <BottomSheetInternalContext.Provider value={contextValue}>
+        {topHandle}
+        <TopSheetInternalContext.Provider value={contextValue}>
           <View
             onLayout={needsContentMeasurement ? undefined : handleContentLayout}
             ref={contentRootRef}
@@ -1330,7 +1487,7 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
               styles.content,
               applyContentInset
                 ? {
-                    paddingBottom: contentInsets.bottom,
+                    paddingTop: contentInsets.top,
                   }
                 : null,
               contentContainerStyle,
@@ -1338,13 +1495,14 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
           >
             {children}
           </View>
-        </BottomSheetInternalContext.Provider>
+        </TopSheetInternalContext.Provider>
+        {bottomHandle}
       </Animated.View>
     );
 
     const measurementContent = shouldRenderMeasurement ? (
       <View pointerEvents="none" style={styles.measurementRoot}>
-        <BottomSheetInternalContext.Provider value={contextValue}>
+        <TopSheetInternalContext.Provider value={contextValue}>
           <View
             style={[
               styles.measurementSheet,
@@ -1362,7 +1520,7 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
                 styles.content,
                 applyContentInset
                   ? {
-                      paddingBottom: contentInsets.bottom,
+                      paddingTop: contentInsets.top,
                     }
                   : null,
                 contentContainerStyle,
@@ -1371,13 +1529,13 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
               {children}
             </View>
           </View>
-        </BottomSheetInternalContext.Provider>
+        </TopSheetInternalContext.Provider>
       </View>
     ) : null;
 
     const anchorMeasurementContent = needsAnchorMeasurement ? (
       <View pointerEvents="none" style={styles.measurementRoot}>
-        <BottomSheetInternalContext.Provider value={contextValue}>
+        <TopSheetInternalContext.Provider value={contextValue}>
           <View
             style={[
               styles.measurementSheet,
@@ -1395,7 +1553,7 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
                 styles.content,
                 applyContentInset
                   ? {
-                      paddingBottom: contentInsets.bottom,
+                      paddingTop: contentInsets.top,
                     }
                   : null,
                 contentContainerStyle,
@@ -1404,7 +1562,7 @@ export const BottomSheet = React.forwardRef<BottomSheetRef, BottomSheetProps>(
               {children}
             </View>
           </View>
-        </BottomSheetInternalContext.Provider>
+        </TopSheetInternalContext.Provider>
       </View>
     ) : null;
 
@@ -1450,18 +1608,12 @@ const styles = StyleSheet.create({
   handleArea: {
     alignItems: "center",
     justifyContent: "center",
-    minHeight: DEFAULT_HANDLE_AREA_HEIGHT,
+    overflow: "hidden",
   },
   handleIndicator: {
     borderRadius: DEFAULT_HANDLE_THICKNESS,
     height: DEFAULT_HANDLE_THICKNESS,
     width: DEFAULT_HANDLE_WIDTH,
-  },
-  hiddenSheet: {
-    opacity: 0,
-  },
-  hiddenHandleArea: {
-    minHeight: 8,
   },
   measurementRoot: {
     left: 0,
@@ -1477,14 +1629,14 @@ const styles = StyleSheet.create({
   },
   root: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
   },
   sheet: {
     backgroundColor: "#101317",
     overflow: "hidden",
     shadowColor: "#000000",
     shadowOffset: {
-      height: -10,
+      height: 10,
       width: 0,
     },
     shadowRadius: 24,

@@ -10,12 +10,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { BottomSheet, BottomSheetRef } from "@bobberz/bottom-sheet";
+import { BottomSheet, BottomSheetRef, TopSheet, TopSheetRef } from "@bobberz/bottom-sheet";
 
 import {
   BOTTOM_SHEET_SCENARIOS,
   BottomSheetScenarioDefinition,
   BottomSheetScenarioRenderContext,
+  TOP_SHEET_SCENARIOS,
+  TopSheetScenarioDefinition,
+  TopSheetScenarioRenderContext,
 } from "@/demo/scenarios";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -109,11 +112,19 @@ function ScenarioRow({
 export function DemoScreen() {
   const { height: viewportHeight } = useWindowDimensions();
   const [activeScenarioId, setActiveScenarioId] = React.useState("dynamic-content");
+  const [activeTopScenarioId, setActiveTopScenarioId] = React.useState<string | null>(null);
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isTopOpen, setIsTopOpen] = React.useState(false);
   const [currentHeight, setCurrentHeight] = React.useState(0);
   const [currentSnapIndex, setCurrentSnapIndex] = React.useState(-1);
+  const [topCurrentHeight, setTopCurrentHeight] = React.useState(0);
+  const [topCurrentSnapIndex, setTopCurrentSnapIndex] = React.useState(-1);
   const sheetRef = React.useRef<BottomSheetRef | null>(null);
+  const topSheetRef = React.useRef<TopSheetRef | null>(null);
   const queuedActionRef = React.useRef<"expand" | "peek" | null>(null);
+  const topQueuedActionRef = React.useRef<"expand" | "peek" | null>(null);
+
+  const isTopMode = activeTopScenarioId != null;
 
   const activeScenario = React.useMemo(
     () =>
@@ -122,6 +133,32 @@ export function DemoScreen() {
     [activeScenarioId]
   );
 
+  const activeTopScenario = React.useMemo(
+    () =>
+      activeTopScenarioId != null
+        ? TOP_SHEET_SCENARIOS.find((s) => s.id === activeTopScenarioId) ?? TOP_SHEET_SCENARIOS[0]
+        : null,
+    [activeTopScenarioId]
+  );
+
+  const displayTitle = isTopMode ? (activeTopScenario?.title ?? "") : activeScenario.title;
+  const displaySummary = isTopMode ? (activeTopScenario?.summary ?? "") : activeScenario.summary;
+  const displayInfoRows = isTopMode ? (activeTopScenario?.infoRows ?? []) : activeScenario.infoRows;
+  const displayOpen = isTopMode ? isTopOpen : isOpen;
+  const displayHeight = isTopMode ? topCurrentHeight : currentHeight;
+  const displaySnapIndex = isTopMode ? topCurrentSnapIndex : currentSnapIndex;
+  const displayBackdrop = isTopMode
+    ? (activeTopScenario?.sheetProps.backdropOpacity === 0
+        ? "none"
+        : activeTopScenario?.sheetProps.backdropPressBehavior === "none"
+          ? "visible · pass-through"
+          : "black · tap close")
+    : (activeScenario.sheetProps.backdropOpacity === 0
+        ? "none"
+        : activeScenario.sheetProps.backdropPressBehavior === "none"
+          ? "visible · pass-through"
+          : "black · tap close");
+
   const renderContext = React.useMemo<BottomSheetScenarioRenderContext>(
     () => ({
       currentHeight,
@@ -129,6 +166,15 @@ export function DemoScreen() {
       isOpen,
     }),
     [currentHeight, currentSnapIndex, isOpen]
+  );
+
+  const topRenderContext = React.useMemo<TopSheetScenarioRenderContext>(
+    () => ({
+      currentHeight: topCurrentHeight,
+      currentSnapIndex: topCurrentSnapIndex,
+      isOpen: isTopOpen,
+    }),
+    [topCurrentHeight, topCurrentSnapIndex, isTopOpen]
   );
 
   React.useEffect(() => {
@@ -149,30 +195,69 @@ export function DemoScreen() {
     });
   }, [activeScenarioId, isOpen]);
 
-  const openBase = React.useCallback(() => {
-    if (!isOpen) {
-      queuedActionRef.current = "peek";
-      setIsOpen(true);
+  React.useEffect(() => {
+    if (!isTopOpen || topQueuedActionRef.current == null) {
       return;
     }
 
-    sheetRef.current?.snapToIndex(0);
-  }, [isOpen]);
+    const action = topQueuedActionRef.current;
+    topQueuedActionRef.current = null;
+
+    requestAnimationFrame(() => {
+      if (action === "expand") {
+        topSheetRef.current?.expand();
+        return;
+      }
+
+      topSheetRef.current?.snapToIndex(0);
+    });
+  }, [activeTopScenarioId, isTopOpen]);
+
+  const openBase = React.useCallback(() => {
+    if (isTopMode) {
+      if (!isTopOpen) {
+        topQueuedActionRef.current = "peek";
+        setIsTopOpen(true);
+        return;
+      }
+      topSheetRef.current?.snapToIndex(0);
+    } else {
+      if (!isOpen) {
+        queuedActionRef.current = "peek";
+        setIsOpen(true);
+        return;
+      }
+      sheetRef.current?.snapToIndex(0);
+    }
+  }, [isTopMode, isOpen, isTopOpen]);
 
   const openMax = React.useCallback(() => {
-    if (!isOpen) {
-      queuedActionRef.current = "expand";
-      setIsOpen(true);
-      return;
+    if (isTopMode) {
+      if (!isTopOpen) {
+        topQueuedActionRef.current = "expand";
+        setIsTopOpen(true);
+        return;
+      }
+      topSheetRef.current?.expand();
+    } else {
+      if (!isOpen) {
+        queuedActionRef.current = "expand";
+        setIsOpen(true);
+        return;
+      }
+      sheetRef.current?.expand();
     }
-
-    sheetRef.current?.expand();
-  }, [isOpen]);
+  }, [isTopMode, isOpen, isTopOpen]);
 
   const closeSheet = React.useCallback(() => {
-    queuedActionRef.current = null;
-    sheetRef.current?.dismiss();
-  }, []);
+    if (isTopMode) {
+      topQueuedActionRef.current = null;
+      topSheetRef.current?.dismiss();
+    } else {
+      queuedActionRef.current = null;
+      sheetRef.current?.dismiss();
+    }
+  }, [isTopMode]);
 
   return (
     <View style={styles.screen}>
@@ -182,25 +267,25 @@ export function DemoScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Bottom Sheet</Text>
+            <Text style={styles.title}>Sheet Demos</Text>
             <Text style={styles.subtitle}>
-              {BOTTOM_SHEET_SCENARIOS.length} scenarios
+              {BOTTOM_SHEET_SCENARIOS.length + TOP_SHEET_SCENARIOS.length} scenarios
             </Text>
           </View>
 
           <SectionLabel>Current</SectionLabel>
           <Group>
-            <InfoRow label="Scenario" value={activeScenario.title} />
-            <InfoRow divider label="Open" value={isOpen ? "yes" : "no"} />
+            <InfoRow label="Scenario" value={displayTitle} />
+            <InfoRow divider label="Open" value={displayOpen ? "yes" : "no"} />
             <InfoRow
               divider
               label="Snap index"
-              value={currentSnapIndex >= 0 ? `${currentSnapIndex}` : "closed"}
+              value={displaySnapIndex >= 0 ? `${displaySnapIndex}` : "closed"}
             />
             <InfoRow
               divider
               label="Sheet height"
-              value={`${Math.round(currentHeight)} pt`}
+              value={`${Math.round(displayHeight)} pt`}
             />
             <InfoRow
               divider
@@ -210,20 +295,14 @@ export function DemoScreen() {
             <InfoRow
               divider
               label="Backdrop"
-              value={
-                activeScenario.sheetProps.backdropOpacity === 0
-                  ? "none"
-                  : activeScenario.sheetProps.backdropPressBehavior === "none"
-                    ? "visible · pass-through"
-                    : "black · tap close"
-              }
+              value={displayBackdrop}
             />
           </Group>
 
           <SectionLabel>Selected</SectionLabel>
           <Group>
-            <InfoRow label="Config" value={activeScenario.summary} />
-            {activeScenario.infoRows.map((row, index) => (
+            <InfoRow label="Config" value={displaySummary} />
+            {displayInfoRows.map((row, index) => (
               <InfoRow
                 divider
                 key={`${row.label}-${row.value}-${index}`}
@@ -275,16 +354,33 @@ export function DemoScreen() {
                 </View>
               </GroupRow>
             </Pressable>
+            <Pressable
+              onPress={() => {
+                router.push("/embedded-top-sheet");
+              }}
+              style={({ pressed }) => [pressed && styles.pressed]}
+            >
+              <GroupRow divider>
+                <View style={styles.rowCopy}>
+                  <Text style={styles.rowLabel}>Embedded top sheet</Text>
+                  <Text style={styles.rowDetail}>
+                    inline top sheet that expands to fullscreen
+                  </Text>
+                </View>
+              </GroupRow>
+            </Pressable>
           </Group>
 
-          <SectionLabel>Scenarios</SectionLabel>
+          <SectionLabel>Bottom Sheet Scenarios</SectionLabel>
           <Group>
             {BOTTOM_SHEET_SCENARIOS.map((scenario, index) => (
               <ScenarioRow
-                active={scenario.id === activeScenario.id}
+                active={!isTopMode && scenario.id === activeScenario.id}
                 index={index}
                 key={scenario.id}
                 onPress={() => {
+                  setActiveTopScenarioId(null);
+                  setIsTopOpen(false);
                   queuedActionRef.current = "peek";
                   setActiveScenarioId(scenario.id);
                   setIsOpen(true);
@@ -293,34 +389,82 @@ export function DemoScreen() {
               />
             ))}
           </Group>
+
+          <SectionLabel>Top Sheet Scenarios</SectionLabel>
+          <Group>
+            {TOP_SHEET_SCENARIOS.map((scenario, index) => (
+              <ScenarioRow
+                active={isTopMode && scenario.id === activeTopScenarioId}
+                index={index}
+                key={scenario.id}
+                onPress={() => {
+                  setIsOpen(false);
+                  topQueuedActionRef.current = "peek";
+                  setActiveTopScenarioId(scenario.id);
+                  setIsTopOpen(true);
+                }}
+                scenario={scenario}
+              />
+            ))}
+          </Group>
         </ScrollView>
       </SafeAreaView>
 
-      <BottomSheet
-        key={activeScenario.id}
-        backdropOpacity={activeScenario.sheetProps.backdropOpacity ?? 0.28}
-        backdropPressBehavior={
-          activeScenario.sheetProps.backdropPressBehavior ?? "close"
-        }
-        backdropStyle={styles.backdrop}
-        onOpenChange={(nextOpen) => {
-          setIsOpen(nextOpen);
-
-          if (!nextOpen) {
-            setCurrentHeight(0);
-            setCurrentSnapIndex(-1);
+      {!isTopMode ? (
+        <BottomSheet
+          key={activeScenario.id}
+          backdropOpacity={activeScenario.sheetProps.backdropOpacity ?? 0.28}
+          backdropPressBehavior={
+            activeScenario.sheetProps.backdropPressBehavior ?? "close"
           }
-        }}
-        onSnapChange={(index, height) => {
-          setCurrentHeight(height);
-          setCurrentSnapIndex(index);
-        }}
-        open={isOpen}
-        ref={sheetRef}
-        {...activeScenario.sheetProps}
-      >
-        {activeScenario.renderContent(renderContext)}
-      </BottomSheet>
+          backdropStyle={styles.backdrop}
+          onOpenChange={(nextOpen) => {
+            setIsOpen(nextOpen);
+
+            if (!nextOpen) {
+              setCurrentHeight(0);
+              setCurrentSnapIndex(-1);
+            }
+          }}
+          onSnapChange={(index, height) => {
+            setCurrentHeight(height);
+            setCurrentSnapIndex(index);
+          }}
+          open={isOpen}
+          ref={sheetRef}
+          {...activeScenario.sheetProps}
+        >
+          {activeScenario.renderContent(renderContext)}
+        </BottomSheet>
+      ) : null}
+
+      {isTopMode && activeTopScenario != null ? (
+        <TopSheet
+          key={activeTopScenario.id}
+          backdropOpacity={activeTopScenario.sheetProps.backdropOpacity ?? 0.28}
+          backdropPressBehavior={
+            activeTopScenario.sheetProps.backdropPressBehavior ?? "close"
+          }
+          backdropStyle={styles.backdrop}
+          onOpenChange={(nextOpen) => {
+            setIsTopOpen(nextOpen);
+
+            if (!nextOpen) {
+              setTopCurrentHeight(0);
+              setTopCurrentSnapIndex(-1);
+            }
+          }}
+          onSnapChange={(index, height) => {
+            setTopCurrentHeight(height);
+            setTopCurrentSnapIndex(index);
+          }}
+          open={isTopOpen}
+          ref={topSheetRef}
+          {...activeTopScenario.sheetProps}
+        >
+          {activeTopScenario.renderContent(topRenderContext)}
+        </TopSheet>
+      ) : null}
     </View>
   );
 }

@@ -16,3 +16,22 @@ export type {
   BottomSheetSnapPoint,
   BottomSheetScrollViewProps,
 } from "./lib/bottom-sheet";
+
+export {
+  TopSheet,
+  TopSheetAnchor,
+  TopSheetScrollView,
+  createTopSheetAnchor,
+  useTopSheetInsets,
+} from "./lib/top-sheet";
+
+export type {
+  TopSheetAnchorPoint,
+  TopSheetAnchorProps,
+  TopSheetDetachedPadding,
+  TopSheetInsets,
+  TopSheetProps,
+  TopSheetRef,
+  TopSheetSnapPoint,
+  TopSheetScrollViewProps,
+} from "./lib/top-sheet";

@@ -33,11 +33,11 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BottomSheet = void 0;
-exports.createBottomSheetAnchor = createBottomSheetAnchor;
-exports.useBottomSheetInsets = useBottomSheetInsets;
-exports.BottomSheetAnchor = BottomSheetAnchor;
-exports.BottomSheetScrollView = BottomSheetScrollView;
+exports.TopSheet = void 0;
+exports.createTopSheetAnchor = createTopSheetAnchor;
+exports.useTopSheetInsets = useTopSheetInsets;
+exports.TopSheetAnchor = TopSheetAnchor;
+exports.TopSheetScrollView = TopSheetScrollView;
 const jsx_runtime_1 = require("react/jsx-runtime");
 const React = __importStar(require("react"));
 const react_native_1 = require("react-native");
@@ -74,7 +74,7 @@ const SNAP_PROJECTION_TIME = 0.18;
 const SNAP_EPSILON = 1;
 const RUBBER_BAND_FACTOR = 0.55;
 const BACKDROP_MIN_VISIBILITY = 0.58;
-const BottomSheetInternalContext = React.createContext(null);
+const TopSheetInternalContext = React.createContext(null);
 function isAnchorSnapPoint(snapPoint) {
     return typeof snapPoint === "object" && snapPoint.type === "anchor";
 }
@@ -105,10 +105,6 @@ function rubberBand(distance) {
     }
     return (distance * RUBBER_BAND_FACTOR) / (1 + distance / 140);
 }
-function projectHeight(height, velocityY) {
-    "worklet";
-    return height - velocityY * SNAP_PROJECTION_TIME;
-}
 function normalizeDetachedPadding(value) {
     if (typeof value === "number") {
         return {
@@ -121,10 +117,10 @@ function normalizeDetachedPadding(value) {
     const horizontal = value?.horizontal ?? DEFAULT_DETACHED_EDGE;
     const vertical = value?.vertical ?? 0;
     return {
-        bottom: value?.bottom ?? DEFAULT_DETACHED_EDGE + vertical,
+        bottom: value?.bottom ?? vertical,
         left: value?.left ?? horizontal,
         right: value?.right ?? horizontal,
-        top: value?.top ?? vertical,
+        top: value?.top ?? DEFAULT_DETACHED_EDGE + vertical,
     };
 }
 function resolveSnapPoint(snapPoint, availableHeight, contentHeight, anchors) {
@@ -177,35 +173,20 @@ function getNearestSnapIndex(height, snapHeights) {
     }
     return bestIndex;
 }
-function pickTargetSnap(currentHeight, velocityY, snapHeights, dismissible) {
-    "worklet";
-    if (snapHeights.length === 0) {
-        return -1;
-    }
-    const projectedHeight = projectHeight(currentHeight, velocityY);
-    const floorHeight = snapHeights[0];
-    const shouldDismiss = dismissible &&
-        (projectedHeight < Math.max(floorHeight * 0.5, DISMISS_DISTANCE) ||
-            (velocityY > DISMISS_VELOCITY && currentHeight <= floorHeight + 48));
-    if (shouldDismiss) {
-        return -1;
-    }
-    return getNearestSnapIndex(projectedHeight, snapHeights);
-}
-function createBottomSheetAnchor(key, options) {
+function createTopSheetAnchor(key, options) {
     return {
         key,
         offset: options?.offset,
         type: "anchor",
     };
 }
-function useBottomSheetInsets() {
-    return React.useContext(BottomSheetInternalContext)?.contentInsets ?? {
-        bottom: 0,
+function useTopSheetInsets() {
+    return React.useContext(TopSheetInternalContext)?.contentInsets ?? {
+        top: 0,
     };
 }
-function BottomSheetAnchor({ name, onLayout, ...props }) {
-    const context = React.useContext(BottomSheetInternalContext);
+function TopSheetAnchor({ name, onLayout, ...props }) {
+    const context = React.useContext(TopSheetInternalContext);
     const anchorRef = React.useRef(null);
     const measureRef = React.useRef(() => { });
     const pendingFrameRef = React.useRef(null);
@@ -251,8 +232,8 @@ function BottomSheetAnchor({ name, onLayout, ...props }) {
     }, [cancelPendingMeasure, context, name]);
     return (0, jsx_runtime_1.jsx)(react_native_1.View, { ...props, onLayout: measure, ref: anchorRef });
 }
-function BottomSheetScrollView({ alwaysBounceVertical = true, bounces = true, onScroll, scrollEnabled, scrollEventThrottle = 16, ...props }) {
-    const context = React.useContext(BottomSheetInternalContext);
+function TopSheetScrollView({ alwaysBounceVertical = true, bounces = true, onScroll, scrollEnabled, scrollEventThrottle = 16, ...props }) {
+    const context = React.useContext(TopSheetInternalContext);
     const onScrollRef = useLatestRef(onScroll);
     const [derivedScrollEnabled, setDerivedScrollEnabled] = React.useState(false);
     React.useEffect(() => {
@@ -294,7 +275,7 @@ function BottomSheetScrollView({ alwaysBounceVertical = true, bounces = true, on
     const nativeGesture = react_native_gesture_handler_1.Gesture.Native().simultaneousWithExternalGesture(context.sheetPanGesture);
     return ((0, jsx_runtime_1.jsx)(react_native_gesture_handler_1.GestureDetector, { gesture: nativeGesture, children: (0, jsx_runtime_1.jsx)(react_native_reanimated_1.default.ScrollView, { ...props, alwaysBounceVertical: alwaysBounceVertical, bounces: bounces, onScroll: handleScroll, scrollEnabled: effectiveScrollEnabled, scrollEventThrottle: scrollEventThrottle }) }));
 }
-exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = false, applyContentInset = true, backdropColor = DEFAULT_BACKDROP_COLOR, backdropOpacity = DEFAULT_BACKDROP_OPACITY, backdropPressBehavior = "close", backdropStyle, children, collapsedHeight, contentBottomInset = 0, contentContainerStyle, cornerRadius = DEFAULT_CORNER_RADIUS, defaultOpen = true, detached = false, detachedPadding, dismissible = true, dragRegion = "sheet", fullScreenCornerRadius, handleColor = "rgba(255, 255, 255, 0.42)", handleStyle, handleVisible = true, initialSnapIndex = 0, onDismiss, onOpenChange, onSnapChange, open: controlledOpen, sheetStyle, snapPoints, style, topInset = 0, }, ref) {
+exports.TopSheet = React.forwardRef(function TopSheet({ allowFullScreen = false, applyContentInset = true, backdropColor = DEFAULT_BACKDROP_COLOR, backdropOpacity = DEFAULT_BACKDROP_OPACITY, backdropPressBehavior = "close", backdropStyle, bottomInset = 0, children, collapsedHeight, contentContainerStyle, contentTopInset = 0, cornerRadius = DEFAULT_CORNER_RADIUS, defaultOpen = true, detached = false, detachedPadding, dismissible = true, dragRegion = "sheet", fullScreenCornerRadius, handleColor = "rgba(255, 255, 255, 0.42)", handleStyle, handleVisible = true, initialSnapIndex = 0, onDismiss, onOpenChange, onSnapChange, open: controlledOpen, sheetStyle, snapPoints, style, }, ref) {
     const isControlled = controlledOpen != null;
     const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
     const open = controlledOpen ?? uncontrolledOpen;
@@ -315,12 +296,11 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
     const animationTargetRef = React.useRef(null);
     const resolvedDetachedPadding = React.useMemo(() => normalizeDetachedPadding(detachedPadding), [detachedPadding]);
     const contentInsets = React.useMemo(() => ({
-        bottom: contentBottomInset + safeAreaInsets.bottom,
-    }), [contentBottomInset, safeAreaInsets.bottom]);
-    const topBoundaryInset = allowFullScreen
-        ? Math.max(topInset, safeAreaInsets.top)
-        : topInset;
-    const availableHeight = Math.max(dimensions.height - topBoundaryInset, 0);
+        top: contentTopInset + safeAreaInsets.top,
+    }), [contentTopInset, safeAreaInsets.top]);
+    const availableHeight = allowFullScreen
+        ? dimensions.height
+        : Math.max(dimensions.height - bottomInset, 0);
     const requestedSnapPoints = React.useMemo(() => buildSnapPoints(snapPoints, collapsedHeight), [collapsedHeight, snapPoints]);
     const requestedAnchorKeys = React.useMemo(() => requestedSnapPoints
         .filter(isAnchorSnapPoint)
@@ -381,10 +361,13 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
     const resolvedSnapHeightsKey = React.useMemo(() => resolvedSnapHeights.join("|"), [resolvedSnapHeights]);
     const initialIndex = React.useMemo(() => clampIndex(initialSnapIndex, Math.max(resolvedSnapHeights.length - 1, 0)), [initialSnapIndex, resolvedSnapHeights.length]);
     const currentHeight = (0, react_native_reanimated_1.useSharedValue)(0);
+    const dismissOffset = (0, react_native_reanimated_1.useSharedValue)(0);
     const dragStartHeight = (0, react_native_reanimated_1.useSharedValue)(0);
+    const dragStartDismissOffset = (0, react_native_reanimated_1.useSharedValue)(0);
     const snapHeights = (0, react_native_reanimated_1.useSharedValue)([]);
     const currentIndex = (0, react_native_reanimated_1.useSharedValue)(-1);
     const isDragging = (0, react_native_reanimated_1.useSharedValue)(false);
+    const isSlideMode = (0, react_native_reanimated_1.useSharedValue)(false);
     const scrollableOffsetY = (0, react_native_reanimated_1.useSharedValue)(0);
     const scrollableRegistered = (0, react_native_reanimated_1.useSharedValue)(false);
     const scrollGestureCanCaptureSheet = (0, react_native_reanimated_1.useSharedValue)(true);
@@ -467,6 +450,14 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
             latestDismiss.current?.();
         }
     }, [latestDismiss, requestOpenChange]);
+    const finalizeSlideOffDismiss = React.useCallback(() => {
+        if (!isMountedRef.current) {
+            return;
+        }
+        currentHeight.value = 0;
+        dismissOffset.value = 0;
+        finalizeDismiss(true, true);
+    }, [currentHeight, dismissOffset, finalizeDismiss]);
     const markAnimationTargetClosed = React.useCallback(() => {
         animationTargetRef.current = {
             type: "closed",
@@ -499,6 +490,7 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
         hasPresentedRef.current = true;
         currentIndex.value = nextIndex;
         if (isFirstPresent) {
+            dismissOffset.value = (0, react_native_reanimated_1.withTiming)(0, PRESENT_TIMING_CONFIG);
             currentHeight.value = (0, react_native_reanimated_1.withTiming)(targetHeight, PRESENT_TIMING_CONFIG, (finished) => {
                 if (!finished) {
                     return;
@@ -507,6 +499,7 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
             });
         }
         else {
+            dismissOffset.value = (0, react_native_reanimated_1.withSpring)(0, SPRING_CONFIG);
             currentHeight.value = (0, react_native_reanimated_1.withSpring)(targetHeight, SPRING_CONFIG, (finished) => {
                 if (!finished) {
                     return;
@@ -514,7 +507,7 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
                 (0, react_native_reanimated_1.runOnJS)(finalizeSnap)(nextIndex, targetHeight);
             });
         }
-    }, [currentHeight, currentIndex, finalizeSnap, resolvedSnapHeights]);
+    }, [currentHeight, currentIndex, dismissOffset, finalizeSnap, resolvedSnapHeights]);
     const animateToClosed = React.useCallback(({ callDismiss = true, callOpenChange = true, force = false, } = {}) => {
         if (!force && animationTargetRef.current?.type === "closed") {
             return;
@@ -523,6 +516,8 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
             type: "closed",
         };
         (0, react_native_reanimated_1.cancelAnimation)(currentHeight);
+        (0, react_native_reanimated_1.cancelAnimation)(dismissOffset);
+        dismissOffset.value = 0;
         currentIndex.value = -1;
         currentHeight.value = (0, react_native_reanimated_1.withSpring)(0, CLOSE_SPRING_CONFIG, (finished) => {
             if (!finished) {
@@ -530,7 +525,7 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
             }
             (0, react_native_reanimated_1.runOnJS)(finalizeDismiss)(callDismiss, callOpenChange);
         });
-    }, [currentHeight, currentIndex, finalizeDismiss]);
+    }, [currentHeight, currentIndex, dismissOffset, finalizeDismiss]);
     React.useImperativeHandle(ref, () => ({
         dismiss: () => {
             animateToClosed();
@@ -595,8 +590,9 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
         return () => {
             isMountedRef.current = false;
             (0, react_native_reanimated_1.cancelAnimation)(currentHeight);
+            (0, react_native_reanimated_1.cancelAnimation)(dismissOffset);
         };
-    }, [currentHeight]);
+    }, [currentHeight, dismissOffset]);
     const handleContentLayout = React.useCallback((event) => {
         if (!needsContentMeasurement) {
             return;
@@ -610,9 +606,15 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
             .failOffsetX([-24, 24])
             .onBegin(() => {
             (0, react_native_reanimated_1.cancelAnimation)(currentHeight);
+            (0, react_native_reanimated_1.cancelAnimation)(dismissOffset);
             dragStartHeight.value = currentHeight.value;
+            dragStartDismissOffset.value = dismissOffset.value;
             isDragging.value = true;
             sheetGestureOwnsTouch.value = false;
+            // At fullscreen, use slide mode: translateY-based dismiss
+            isSlideMode.value =
+                allowFullScreen &&
+                    currentHeight.value >= interactiveMaxHeight.value - SNAP_EPSILON;
             scrollGestureCanCaptureSheet.value =
                 !scrollableRegistered.value ||
                     currentHeight.value < interactiveMaxHeight.value - SNAP_EPSILON ||
@@ -625,28 +627,52 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
                 return;
             }
             const hasScrollable = scrollableRegistered.value;
-            const shouldAllowScrollableCapture = !hasScrollable ||
-                currentHeight.value < maxHeight - SNAP_EPSILON ||
-                (scrollGestureCanCaptureSheet.value &&
-                    scrollableOffsetY.value <= SNAP_EPSILON &&
-                    event.translationY > 0);
-            if (hasScrollable && !shouldAllowScrollableCapture) {
-                return;
+            if (isSlideMode.value) {
+                // Fullscreen slide mode: drag down slides the sheet down (like bottom sheet dismiss)
+                const shouldAllowScrollableCapture = !hasScrollable ||
+                    (scrollGestureCanCaptureSheet.value &&
+                        scrollableOffsetY.value <= SNAP_EPSILON &&
+                        event.translationY > 0);
+                if (hasScrollable && !shouldAllowScrollableCapture) {
+                    return;
+                }
+                sheetGestureOwnsTouch.value = true;
+                const nextOffset = dragStartDismissOffset.value + event.translationY;
+                if (nextOffset < 0) {
+                    dismissOffset.value = -rubberBand(-nextOffset);
+                    return;
+                }
+                if (!dismissible && nextOffset > 0) {
+                    dismissOffset.value = rubberBand(nextOffset);
+                    return;
+                }
+                dismissOffset.value = nextOffset;
             }
-            sheetGestureOwnsTouch.value = true;
-            const floorHeight = heights[0];
-            const nextHeight = dragStartHeight.value - event.translationY;
-            if (nextHeight < floorHeight) {
-                currentHeight.value = dismissible
-                    ? Math.max(0, nextHeight)
-                    : floorHeight - rubberBand(floorHeight - nextHeight);
-                return;
+            else {
+                // Expand mode: drag down increases height (top sheet grows downward)
+                const shouldAllowScrollableCapture = !hasScrollable ||
+                    currentHeight.value < maxHeight - SNAP_EPSILON ||
+                    (scrollGestureCanCaptureSheet.value &&
+                        scrollableOffsetY.value <= SNAP_EPSILON &&
+                        event.translationY < 0);
+                if (hasScrollable && !shouldAllowScrollableCapture) {
+                    return;
+                }
+                sheetGestureOwnsTouch.value = true;
+                const floorHeight = heights[0];
+                const nextHeight = dragStartHeight.value + event.translationY;
+                if (nextHeight < floorHeight) {
+                    currentHeight.value = dismissible
+                        ? Math.max(0, nextHeight)
+                        : floorHeight - rubberBand(floorHeight - nextHeight);
+                    return;
+                }
+                if (nextHeight > maxHeight) {
+                    currentHeight.value = maxHeight + rubberBand(nextHeight - maxHeight);
+                    return;
+                }
+                currentHeight.value = nextHeight;
             }
-            if (nextHeight > maxHeight) {
-                currentHeight.value = maxHeight + rubberBand(nextHeight - maxHeight);
-                return;
-            }
-            currentHeight.value = nextHeight;
         })
             .onEnd((event) => {
             isDragging.value = false;
@@ -657,26 +683,73 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
             if (heights.length === 0) {
                 return;
             }
-            const targetIndex = pickTargetSnap(currentHeight.value, event.velocityY, heights, dismissible);
-            if (targetIndex < 0) {
-                (0, react_native_reanimated_1.runOnJS)(markAnimationTargetClosed)();
-                currentIndex.value = -1;
-                currentHeight.value = (0, react_native_reanimated_1.withSpring)(0, CLOSE_SPRING_CONFIG, (finished) => {
+            if (isSlideMode.value) {
+                // Slide mode: either dismiss fully or snap back to fullscreen
+                const maxHeight = interactiveMaxHeight.value;
+                const projectedOffset = dismissOffset.value + event.velocityY * SNAP_PROJECTION_TIME;
+                const shouldDismiss = dismissible &&
+                    (projectedOffset > maxHeight * 0.5 ||
+                        event.velocityY > DISMISS_VELOCITY);
+                if (shouldDismiss) {
+                    (0, react_native_reanimated_1.runOnJS)(markAnimationTargetClosed)();
+                    currentIndex.value = -1;
+                    dismissOffset.value = (0, react_native_reanimated_1.withSpring)(maxHeight, CLOSE_SPRING_CONFIG, (finished) => {
+                        if (!finished) {
+                            return;
+                        }
+                        (0, react_native_reanimated_1.runOnJS)(finalizeSlideOffDismiss)();
+                    });
+                    return;
+                }
+                if (!dismissible && heights.length > 1) {
+                    const shouldCollapse = projectedOffset > maxHeight * 0.3 ||
+                        event.velocityY > DISMISS_VELOCITY;
+                    if (shouldCollapse) {
+                        const targetIndex = 0;
+                        const targetHeight = heights[0];
+                        currentIndex.value = targetIndex;
+                        dismissOffset.value = (0, react_native_reanimated_1.withSpring)(0, SPRING_CONFIG);
+                        currentHeight.value = (0, react_native_reanimated_1.withSpring)(targetHeight, SPRING_CONFIG, (finished) => {
+                            if (!finished) {
+                                return;
+                            }
+                            (0, react_native_reanimated_1.runOnJS)(finalizeSnap)(targetIndex, targetHeight);
+                        });
+                        return;
+                    }
+                }
+                // Not enough to dismiss/collapse: snap back to fullscreen
+                dismissOffset.value = (0, react_native_reanimated_1.withSpring)(0, SPRING_CONFIG);
+            }
+            else {
+                // Expand mode: project height via top-sheet physics
+                const projectedHeight = currentHeight.value + event.velocityY * SNAP_PROJECTION_TIME;
+                const floorHeight = heights[0];
+                const shouldDismiss = dismissible &&
+                    (projectedHeight < Math.max(floorHeight * 0.5, DISMISS_DISTANCE) ||
+                        (-event.velocityY > DISMISS_VELOCITY &&
+                            currentHeight.value <= floorHeight + 48));
+                if (shouldDismiss) {
+                    (0, react_native_reanimated_1.runOnJS)(markAnimationTargetClosed)();
+                    currentIndex.value = -1;
+                    currentHeight.value = (0, react_native_reanimated_1.withSpring)(0, CLOSE_SPRING_CONFIG, (finished) => {
+                        if (!finished) {
+                            return;
+                        }
+                        (0, react_native_reanimated_1.runOnJS)(finalizeDismiss)(true, true);
+                    });
+                    return;
+                }
+                const targetIndex = getNearestSnapIndex(projectedHeight, heights);
+                const targetHeight = heights[targetIndex];
+                currentIndex.value = targetIndex;
+                currentHeight.value = (0, react_native_reanimated_1.withSpring)(targetHeight, SPRING_CONFIG, (finished) => {
                     if (!finished) {
                         return;
                     }
-                    (0, react_native_reanimated_1.runOnJS)(finalizeDismiss)(true, true);
+                    (0, react_native_reanimated_1.runOnJS)(finalizeSnap)(targetIndex, targetHeight);
                 });
-                return;
             }
-            currentIndex.value = targetIndex;
-            const targetHeight = heights[targetIndex];
-            currentHeight.value = (0, react_native_reanimated_1.withSpring)(targetHeight, SPRING_CONFIG, (finished) => {
-                if (!finished) {
-                    return;
-                }
-                (0, react_native_reanimated_1.runOnJS)(finalizeSnap)(targetIndex, targetHeight);
-            });
         })
             .onFinalize(() => {
             isDragging.value = false;
@@ -684,14 +757,19 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
             scrollGestureCanCaptureSheet.value = true;
         });
     }, [
+        allowFullScreen,
         currentHeight,
         currentIndex,
+        dismissOffset,
         dismissible,
+        dragStartDismissOffset,
         dragStartHeight,
         finalizeDismiss,
+        finalizeSlideOffDismiss,
         finalizeSnap,
         interactiveMaxHeight,
         isDragging,
+        isSlideMode,
         markAnimationTargetClosed,
         sheetGestureOwnsTouch,
         scrollGestureCanCaptureSheet,
@@ -703,19 +781,21 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
         const heights = snapHeights.value;
         const maxHeight = interactiveMaxHeight.value;
         const floorHeight = heights[0] ?? 0;
+        // Factor in dismiss slide offset for backdrop fade
+        const effectiveHeight = Math.max(0, currentHeight.value - dismissOffset.value);
         let progress = 0;
-        if (currentHeight.value > 0) {
+        if (effectiveHeight > 0) {
             if (maxHeight <= floorHeight + SNAP_EPSILON) {
-                progress = (0, react_native_reanimated_1.clamp)(currentHeight.value / Math.max(maxHeight, 1), 0, 1);
+                progress = (0, react_native_reanimated_1.clamp)(effectiveHeight / Math.max(maxHeight, 1), 0, 1);
             }
-            else if (currentHeight.value <= floorHeight) {
+            else if (effectiveHeight <= floorHeight) {
                 progress =
-                    (0, react_native_reanimated_1.clamp)(currentHeight.value / Math.max(floorHeight, 1), 0, 1) *
+                    (0, react_native_reanimated_1.clamp)(effectiveHeight / Math.max(floorHeight, 1), 0, 1) *
                         BACKDROP_MIN_VISIBILITY;
             }
             else {
                 const range = Math.max(maxHeight - floorHeight, 1);
-                const steppedProgress = (0, react_native_reanimated_1.clamp)((currentHeight.value - floorHeight) / range, 0, 1);
+                const steppedProgress = (0, react_native_reanimated_1.clamp)((effectiveHeight - floorHeight) / range, 0, 1);
                 progress =
                     BACKDROP_MIN_VISIBILITY +
                         steppedProgress * (1 - BACKDROP_MIN_VISIBILITY);
@@ -732,10 +812,10 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
         const morphProgress = detached && allowFullScreen
             ? (0, react_native_reanimated_1.clamp)((currentHeight.value - minHeight) / morphRange, 0, 1)
             : 0;
-        const bottomMargin = detached && allowFullScreen
-            ? resolvedDetachedPadding.bottom * (1 - morphProgress)
+        const topMargin = detached && allowFullScreen
+            ? resolvedDetachedPadding.top * (1 - morphProgress)
             : detached
-                ? resolvedDetachedPadding.bottom
+                ? resolvedDetachedPadding.top
                 : 0;
         const leftMargin = detached && allowFullScreen
             ? resolvedDetachedPadding.left * (1 - morphProgress)
@@ -747,18 +827,18 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
             : detached
                 ? resolvedDetachedPadding.right
                 : 0;
-        const topMargin = detached && allowFullScreen
-            ? resolvedDetachedPadding.top * (1 - morphProgress)
+        const bottomMargin = detached && allowFullScreen
+            ? resolvedDetachedPadding.bottom * (1 - morphProgress)
             : detached
-                ? resolvedDetachedPadding.top
+                ? resolvedDetachedPadding.bottom
                 : 0;
         return {
-            borderTopLeftRadius: cornerRadius - (cornerRadius - fullscreenRadius) * morphProgress,
-            borderTopRightRadius: cornerRadius - (cornerRadius - fullscreenRadius) * morphProgress,
-            borderBottomLeftRadius: detached
+            borderBottomLeftRadius: cornerRadius - (cornerRadius - fullscreenRadius) * morphProgress,
+            borderBottomRightRadius: cornerRadius - (cornerRadius - fullscreenRadius) * morphProgress,
+            borderTopLeftRadius: detached
                 ? cornerRadius - (cornerRadius - fullscreenRadius) * morphProgress
                 : 0,
-            borderBottomRightRadius: detached
+            borderTopRightRadius: detached
                 ? cornerRadius - (cornerRadius - fullscreenRadius) * morphProgress
                 : 0,
             height: currentHeight.value,
@@ -769,9 +849,10 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
             shadowOpacity: 0.24 - 0.12 * morphProgress,
             transform: [
                 {
-                    translateY: !dismissible && currentHeight.value < minHeight
-                        ? -(minHeight - currentHeight.value) * 0.08
-                        : 0,
+                    translateY: dismissOffset.value +
+                        (!dismissible && currentHeight.value < minHeight
+                            ? (minHeight - currentHeight.value) * 0.08
+                            : 0),
                 },
             ],
         };
@@ -788,6 +869,40 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
         resolvedDetachedPadding.right,
         resolvedDetachedPadding.top,
     ]);
+    const topSafeArea = safeAreaInsets.top;
+    // Handle at top: fades in as sheet approaches fullscreen, includes safe area padding
+    const animatedTopHandleStyle = (0, react_native_reanimated_1.useAnimatedStyle)(() => {
+        const maxHeight = interactiveMaxHeight.value;
+        const minHeight = lowestSnapHeight;
+        const morphRange = Math.max(maxHeight - minHeight, 1);
+        const handleMorph = allowFullScreen
+            ? (0, react_native_reanimated_1.clamp)((currentHeight.value - minHeight) / morphRange, 0, 1)
+            : 0;
+        const handleHeight = handleVisible
+            ? DEFAULT_HANDLE_AREA_HEIGHT
+            : 8;
+        return {
+            minHeight: handleMorph * (handleHeight + topSafeArea),
+            paddingTop: handleMorph * topSafeArea,
+            opacity: handleMorph,
+        };
+    }, [allowFullScreen, handleVisible, lowestSnapHeight, topSafeArea]);
+    // Handle at bottom: visible when collapsed, fades out approaching fullscreen
+    const animatedBottomHandleStyle = (0, react_native_reanimated_1.useAnimatedStyle)(() => {
+        const maxHeight = interactiveMaxHeight.value;
+        const minHeight = lowestSnapHeight;
+        const morphRange = Math.max(maxHeight - minHeight, 1);
+        const handleMorph = allowFullScreen
+            ? (0, react_native_reanimated_1.clamp)((currentHeight.value - minHeight) / morphRange, 0, 1)
+            : 0;
+        const handleHeight = handleVisible
+            ? DEFAULT_HANDLE_AREA_HEIGHT
+            : 8;
+        return {
+            minHeight: (1 - handleMorph) * handleHeight,
+            opacity: 1 - handleMorph,
+        };
+    }, [allowFullScreen, handleVisible, lowestSnapHeight]);
     const contextValue = React.useMemo(() => ({
         contentInsets,
         contentRootRef,
@@ -814,39 +929,42 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
     if (!shouldRenderMeasurement && !shouldRenderSheet && !needsAnchorMeasurement) {
         return null;
     }
-    const handle = dragRegion === "handle" ? ((0, jsx_runtime_1.jsx)(react_native_gesture_handler_1.GestureDetector, { gesture: panGesture, children: (0, jsx_runtime_1.jsx)(react_native_reanimated_1.default.View, { style: [
+    const handleIndicator = handleVisible ? ((0, jsx_runtime_1.jsx)(react_native_1.View, { style: [
+            styles.handleIndicator,
+            { backgroundColor: handleColor },
+        ] })) : null;
+    const topHandle = dragRegion === "handle" ? ((0, jsx_runtime_1.jsx)(react_native_gesture_handler_1.GestureDetector, { gesture: panGesture, children: (0, jsx_runtime_1.jsx)(react_native_reanimated_1.default.View, { style: [
                 styles.handleArea,
-                !handleVisible && styles.hiddenHandleArea,
+                animatedTopHandleStyle,
                 handleStyle,
-            ], children: handleVisible ? ((0, jsx_runtime_1.jsx)(react_native_1.View, { style: [
-                    styles.handleIndicator,
-                    {
-                        backgroundColor: handleColor,
-                    },
-                ] })) : null }) })) : ((0, jsx_runtime_1.jsx)(react_native_reanimated_1.default.View, { style: [
+            ], children: handleIndicator }) })) : ((0, jsx_runtime_1.jsx)(react_native_reanimated_1.default.View, { style: [
             styles.handleArea,
-            !handleVisible && styles.hiddenHandleArea,
+            animatedTopHandleStyle,
             handleStyle,
-        ], children: handleVisible ? ((0, jsx_runtime_1.jsx)(react_native_1.View, { style: [
-                styles.handleIndicator,
-                {
-                    backgroundColor: handleColor,
-                },
-            ] })) : null }));
+        ], children: handleIndicator }));
+    const bottomHandle = dragRegion === "handle" ? ((0, jsx_runtime_1.jsx)(react_native_gesture_handler_1.GestureDetector, { gesture: panGesture, children: (0, jsx_runtime_1.jsx)(react_native_reanimated_1.default.View, { style: [
+                styles.handleArea,
+                animatedBottomHandleStyle,
+                handleStyle,
+            ], children: handleIndicator }) })) : ((0, jsx_runtime_1.jsx)(react_native_reanimated_1.default.View, { style: [
+            styles.handleArea,
+            animatedBottomHandleStyle,
+            handleStyle,
+        ], children: handleIndicator }));
     const content = ((0, jsx_runtime_1.jsxs)(react_native_reanimated_1.default.View, { pointerEvents: "auto", style: [
             styles.sheet,
             animatedSheetStyle,
             sheetStyle,
-        ], children: [handle, (0, jsx_runtime_1.jsx)(BottomSheetInternalContext.Provider, { value: contextValue, children: (0, jsx_runtime_1.jsx)(react_native_1.View, { onLayout: needsContentMeasurement ? undefined : handleContentLayout, ref: contentRootRef, style: [
+        ], children: [topHandle, (0, jsx_runtime_1.jsx)(TopSheetInternalContext.Provider, { value: contextValue, children: (0, jsx_runtime_1.jsx)(react_native_1.View, { onLayout: needsContentMeasurement ? undefined : handleContentLayout, ref: contentRootRef, style: [
                         styles.content,
                         applyContentInset
                             ? {
-                                paddingBottom: contentInsets.bottom,
+                                paddingTop: contentInsets.top,
                             }
                             : null,
                         contentContainerStyle,
-                    ], children: children }) })] }));
-    const measurementContent = shouldRenderMeasurement ? ((0, jsx_runtime_1.jsx)(react_native_1.View, { pointerEvents: "none", style: styles.measurementRoot, children: (0, jsx_runtime_1.jsx)(BottomSheetInternalContext.Provider, { value: contextValue, children: (0, jsx_runtime_1.jsx)(react_native_1.View, { style: [
+                    ], children: children }) }), bottomHandle] }));
+    const measurementContent = shouldRenderMeasurement ? ((0, jsx_runtime_1.jsx)(react_native_1.View, { pointerEvents: "none", style: styles.measurementRoot, children: (0, jsx_runtime_1.jsx)(TopSheetInternalContext.Provider, { value: contextValue, children: (0, jsx_runtime_1.jsx)(react_native_1.View, { style: [
                     styles.measurementSheet,
                     detached
                         ? {
@@ -858,12 +976,12 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
                         styles.content,
                         applyContentInset
                             ? {
-                                paddingBottom: contentInsets.bottom,
+                                paddingTop: contentInsets.top,
                             }
                             : null,
                         contentContainerStyle,
                     ], children: children }) }) }) })) : null;
-    const anchorMeasurementContent = needsAnchorMeasurement ? ((0, jsx_runtime_1.jsx)(react_native_1.View, { pointerEvents: "none", style: styles.measurementRoot, children: (0, jsx_runtime_1.jsx)(BottomSheetInternalContext.Provider, { value: contextValue, children: (0, jsx_runtime_1.jsx)(react_native_1.View, { style: [
+    const anchorMeasurementContent = needsAnchorMeasurement ? ((0, jsx_runtime_1.jsx)(react_native_1.View, { pointerEvents: "none", style: styles.measurementRoot, children: (0, jsx_runtime_1.jsx)(TopSheetInternalContext.Provider, { value: contextValue, children: (0, jsx_runtime_1.jsx)(react_native_1.View, { style: [
                     styles.measurementSheet,
                     detached
                         ? {
@@ -875,7 +993,7 @@ exports.BottomSheet = React.forwardRef(function BottomSheet({ allowFullScreen = 
                         styles.content,
                         applyContentInset
                             ? {
-                                paddingBottom: contentInsets.bottom,
+                                paddingTop: contentInsets.top,
                             }
                             : null,
                         contentContainerStyle,
@@ -906,18 +1024,12 @@ const styles = react_native_1.StyleSheet.create({
     handleArea: {
         alignItems: "center",
         justifyContent: "center",
-        minHeight: DEFAULT_HANDLE_AREA_HEIGHT,
+        overflow: "hidden",
     },
     handleIndicator: {
         borderRadius: DEFAULT_HANDLE_THICKNESS,
         height: DEFAULT_HANDLE_THICKNESS,
         width: DEFAULT_HANDLE_WIDTH,
-    },
-    hiddenSheet: {
-        opacity: 0,
-    },
-    hiddenHandleArea: {
-        minHeight: 8,
     },
     measurementRoot: {
         left: 0,
@@ -933,14 +1045,14 @@ const styles = react_native_1.StyleSheet.create({
     },
     root: {
         ...react_native_1.StyleSheet.absoluteFillObject,
-        justifyContent: "flex-end",
+        justifyContent: "flex-start",
     },
     sheet: {
         backgroundColor: "#101317",
         overflow: "hidden",
         shadowColor: "#000000",
         shadowOffset: {
-            height: -10,
+            height: 10,
             width: 0,
         },
         shadowRadius: 24,

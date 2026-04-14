@@ -25,6 +25,7 @@ export default function RootLayout() {
             presentation: "modal",
           }}
         />
+        <Stack.Screen name="embedded-top-sheet" />
       </Stack>
     </GestureHandlerRootView>
   );
